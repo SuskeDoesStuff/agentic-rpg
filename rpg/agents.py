@@ -17,7 +17,7 @@ from . import config
 from .events import Argument
 from .players import clamp
 from .schemas import AgentTurn, Proposal
-from .world import G, exits, world_context
+from .world import G, exits, npcs_at, world_context
 
 QUEST_HINTS = {
     "retrieve_amulet": "the amulet is in the ruins behind a locked shrine; its key lies in the cave past the forest, guarded by a wolf",
@@ -89,13 +89,16 @@ def heading(gs):
 def agent_decide(gs, player, can_move=True):
     """An agent picks one action and a line, steered by what's discovered and whether it leads the march."""
     h = heading(gs)
+    here = [p["name"] for p in gs.alive() if p is not player] + [n.capitalize() for n in npcs_at(gs.location)]
+    present = ", ".join(here) or "no one else"
     base = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}, adventuring with "
-            f"{roster(gs, player)}. Address companions by name. React to them and to what just happened, then issue "
-            "exactly ONE action (no lists, semicolons, or 'then'). You cannot enter a place or claim a prize "
-            "without the item it requires: a dark place needs a light, a locked prize needs its key, so secure the "
-            "prerequisite first. A potion is your only heal in a fight and the road has enemies, so if one is here "
-            "and the party carries none, take it. Never re-ask something already answered. Say one short "
-            "in-character line. ")
+            f"{roster(gs, player)}. Present with you right now: {present}. React to what just happened, then issue "
+            "exactly ONE action (no lists, semicolons, or 'then'). Address only someone present by name; if you are "
+            "alone, do not invent a team or address absent allies or an NPC who is not in this room. You cannot "
+            "enter a place or claim a prize without the item it requires: a dark place needs a light, a locked prize "
+            "needs its key, so secure the prerequisite first. A potion is your only heal in a fight and the road has "
+            "enemies, so if one is here and the party carries none, take it. Never re-ask something already "
+            "answered. Say one short in-character line. ")
     if can_move:
         rule = ("Use 'objective' as your compass: if 'go_to' is set, travel there and nowhere else; if 'known' is "
                 "false you do not yet know where to look, so ask a knowledgeable NPC such as the elder if one is "

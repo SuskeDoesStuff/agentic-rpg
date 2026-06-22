@@ -58,7 +58,9 @@ def test_outlook_reads_the_race():
     gs.party[0]["hp"] = 7
     assert combat.battle_outlook(gs, gs.party[0], 16, 7)["outlook"] == "losing"
     gs.inventory = ["potion"]
-    assert combat.battle_outlook(gs, gs.party[0], 16, 7)["you_can_heal"] is True
+    out = combat.battle_outlook(gs, gs.party[0], 16, 7)
+    assert out["you_can_heal"] is True
+    assert out["outlook"] == "losing"  # holding a potion does not make a doomed race look safe
 
     tank = players.new_game([players.make_player("Tank", "bruiser", is_agent=True,
                             stats={"name": "t", "max_hp": 30, "attack": 10})])

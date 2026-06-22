@@ -11,7 +11,7 @@ import json
 import re
 
 from . import config
-from .agents import open_goals, roster
+from .agents import open_goals
 from .events import Dialogue
 from .pipeline import PARSE_SYS
 from .schemas import Intent
@@ -34,11 +34,14 @@ def detect_addressee(gs, message, speaker=""):
 
 
 def agent_say(gs, player, situation, allow_silence=True):
-    """One short in-character line from an agent, or empty if it has nothing to add."""
+    """One short in-character line from an agent, addressed only to whoever is actually present."""
+    here = [p["name"] for p in gs.alive() if p is not player] + [n.capitalize() for n in npcs_at(gs.location)]
+    present = ", ".join(here) or "no one else"
     rule = "If you have nothing worth adding, reply with an empty line." if allow_silence else ""
-    sysm = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}, with "
-            f"{roster(gs, player)}. Address companions by name. React to the situation with ONE short in-character "
-            f"line. {rule} No quotes.")
+    sysm = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}. Present with you "
+            f"right now: {present}. React with ONE short in-character line. Address only someone present by name; if "
+            "you are alone, speak your own resolve and address no one. Never address an absent ally, a 'team' or "
+            f"'party' that is not here, or an NPC who is not in this room. {rule} No quotes.")
     usr = json.dumps({"situation": situation, "recent": gs.recent_memory()})
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9).strip().strip('"')
 
