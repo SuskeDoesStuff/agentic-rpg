@@ -14,7 +14,7 @@ from .agents import agent_decide, negotiate_move
 from .combat import run_battle
 from .events import Dialogue, GameOver, Narration, NeedAction, System
 from .pipeline import run_turn
-from .speech import agent_say, banter, handle_speech, looks_like_move, parse_player
+from .speech import agent_say, banter, detect_addressee, handle_speech, looks_like_move, npc_reply, parse_player
 from .world import enemy_in_room, items_in_room, npcs_at, world_context
 
 
@@ -86,6 +86,13 @@ def take_turn(gs, player):
             yield System(f"{player['name']} stays with the party")
             return "ok"
         preparsed = intent  # reuse the classification for the world action
+
+    if say and player["is_agent"]:  # a line aimed at a present NPC gets an answer, even mid-action
+        npc = detect_addressee(gs, say, player["name"])
+        if npc in npcs_at(gs.location):
+            reply = npc_reply(gs, npc, say, player["name"])
+            gs.remember(f'{npc}: "{reply}"')
+            yield Dialogue(npc.capitalize(), reply)
 
     prev = gs.location
     gs.turn += 1

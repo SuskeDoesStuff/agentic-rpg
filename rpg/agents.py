@@ -98,17 +98,18 @@ def agent_decide(gs, player, can_move=True):
             "the way ahead in advance: learn what a place or prize demands by asking those who know or by trying and "
             "being turned back, then go fetch what is needed. A potion is your only heal in a fight and the road has "
             "enemies, so if one is here and the party carries none, take it. Never re-ask something already "
-            "answered. Say one short in-character line. ")
+            "answered. Say one short in-character line, and never name your bearings, a compass, an objective, or "
+            "any game term aloud. ")
     if can_move:
-        rule = ("Use 'objective' as your compass: if 'go_to' is set, travel there and nowhere else; if 'known' is "
-                "false you do not yet know where to look, so ask a knowledgeable NPC such as the elder if one is "
+        rule = ("Let 'bearings' steer you: if its 'go_to' is set, travel there and nowhere else; if its 'known' is "
+                "false you do not yet know the way, so ask a knowledgeable NPC such as the elder if one is "
                 "here, and only wander an unvisited path if there is no one to ask.")
     else:
         rule = ("The party travels together and you are not leading the march this turn, so do NOT travel. Do "
                 "something useful where you stand: take a potion or other useful item that is here, talk to a "
                 "companion or an NPC, or hold position.")
     usr = json.dumps({"now": world_context(gs, gs.location), "goals": known_goals(gs),
-                      "objective": h, "carrying_potion": "potion" in gs.inventory, "recent": gs.recent_memory()})
+                      "bearings": h, "carrying_potion": "potion" in gs.inventory, "recent": gs.recent_memory()})
     out = config.work_struct(AgentTurn, [("system", base + rule), ("human", usr)], temperature=0.85)
     return (out.get("say", "") or "").strip(), (out.get("action", "look") or "look").strip()
 
@@ -138,12 +139,13 @@ def negotiate_move(gs):
     proposals = []
     for p in [a for a in gs.alive() if a["is_agent"]]:
         sysm = (f"You are {p['name']}, a {p['caution']} {p['combat_focus']} adventurer. The party decides together "
-                "where to go next. The compass's 'go_to' is the known-correct next step toward the goal, so propose "
-                "that UNLESS your nature gives a concrete reason to deviate: the cautious may want to fall back for "
-                "light or healing before danger, the bold may want to press on. Do not propose a room because you "
-                "guess it connects somewhere, trust the compass for geography. Propose ONE option, or 'stay', with "
-                "one short reason.")
-        usr = json.dumps({"options": opts, "compass": h, "goals": known_goals(gs),
+                "where to go next. The 'bearings' field's 'go_to' is the way you already know leads toward the goal, "
+                "so propose that UNLESS your nature gives a concrete reason to deviate: the cautious may want to fall "
+                "back for light or healing before danger, the bold may want to press on. Do not propose a room "
+                "because you guess it connects somewhere, trust what you already know for geography. Your reason is "
+                "spoken aloud to your companions, so keep it in character and never name your bearings, a compass, "
+                "or any game term. Propose ONE option, or 'stay', with one short reason.")
+        usr = json.dumps({"options": opts, "bearings": h, "goals": known_goals(gs),
                           "here": world_context(gs, gs.location), "recent": gs.recent_memory()})
         prop = config.work_struct(Proposal, [("system", sysm), ("human", usr)])
         dest = (prop.get("destination") or "stay").lower().strip()
