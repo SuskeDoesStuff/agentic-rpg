@@ -24,8 +24,8 @@ QUEST_HINTS = {
     "slay_guardian": "defeat the guardian in the crypt; it is dark, so bring the torch from the market",
 }
 VAGUE_HINTS = {
-    "retrieve_amulet": "retrieve the amulet from these lands; first you must find a key",
-    "slay_guardian": "slay the guardian that lurks in the dark; you will need a light",
+    "retrieve_amulet": "retrieve the amulet, though where it lies and what reaching it demands are still unknown to you",
+    "slay_guardian": "slay the guardian, though where it lurks is still unknown to you",
 }
 
 
@@ -94,9 +94,9 @@ def agent_decide(gs, player, can_move=True):
     base = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}, adventuring with "
             f"{roster(gs, player)}. Present with you right now: {present}. React to what just happened, then issue "
             "exactly ONE action (no lists, semicolons, or 'then'). Address only someone present by name; if you are "
-            "alone, do not invent a team or address absent allies or an NPC who is not in this room. You cannot "
-            "enter a place or claim a prize without the item it requires: a dark place needs a light, a locked prize "
-            "needs its key, so secure the prerequisite first. A potion is your only heal in a fight and the road has "
+            "alone, do not invent a team or address absent allies or an NPC who is not in this room. You do not know "
+            "the way ahead in advance: learn what a place or prize demands by asking those who know or by trying and "
+            "being turned back, then go fetch what is needed. A potion is your only heal in a fight and the road has "
             "enemies, so if one is here and the party carries none, take it. Never re-ask something already "
             "answered. Say one short in-character line. ")
     if can_move:
