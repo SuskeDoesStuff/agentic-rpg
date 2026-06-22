@@ -64,3 +64,16 @@ def test_full_scripted_run_completes():
     assert gs.quests_done()
     assert "wolf" in gs.defeated and "guardian" in gs.defeated
     assert all(0 <= p["hp"] <= p["max_hp"] and 0 <= p["mana"] <= p["max_mana"] for p in gs.party)
+
+
+def test_second_flee_from_same_enemy_is_a_stalemate():
+    gs = players.new_game([_agent("Solo", max_hp=18, attack=10)])
+    gs.inventory = ["torch"]  # lit, so entry is never the blocker here
+    gs.scripted_battle = ["flee"]
+    gs.location = "crypt"
+    assert run_gen(engine.arrive(gs, "ruins", mover=None)) == "ok"  # first flee is allowed
+    assert gs.flee_counts["guardian"] == 1
+    gs.scripted_battle = ["flee"]
+    gs.location = "crypt"
+    assert run_gen(engine.arrive(gs, "ruins", mover=None)) == "stalemate"  # second flee ends it
+    assert gs.flee_counts["guardian"] == 2

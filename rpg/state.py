@@ -22,6 +22,7 @@ class GameState:
     defeated: set = field(default_factory=set)
     visited: set = field(default_factory=set)
     intel: bool = False
+    flee_counts: dict = field(default_factory=dict)
 
     party: list = field(default_factory=list)
     memory: list = field(default_factory=list)

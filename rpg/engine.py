@@ -41,6 +41,8 @@ def arrive(gs, prev, mover=None):
         outcome = yield from run_battle(gs, enemy, prev)
         if outcome == "lost":
             return "gameover"
+        if outcome == "fled" and gs.flee_counts.get(enemy, 0) >= 2:
+            return "stalemate"  # a second flee from the same foe means it cannot be beaten this way
     return "ok"
 
 
@@ -133,8 +135,12 @@ def play(gs, max_rounds=16):
     for _ in range(max_rounds):
         gs.round_moved = False
         if all_agent:
-            if (yield from party_navigation_phase(gs)) == "gameover":
+            result = yield from party_navigation_phase(gs)
+            if result == "gameover":
                 yield GameOver(False, "the party has fallen")
+                return
+            if result == "stalemate":
+                yield GameOver(False, "the party cannot overcome what blocks the way and falls back for good")
                 return
             if gs.quests_done():
                 yield GameOver(True, "all quests complete")
