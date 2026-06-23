@@ -18,10 +18,11 @@ class GameState:
     location: str = "village"
     prev_location: str | None = None
     inventory: list = field(default_factory=list)
-    quests: dict = field(default_factory=lambda: {"retrieve_amulet": "open", "slay_guardian": "open"})
+    quests: dict = field(default_factory=dict)  # quest_id -> "active"/"done"; empty until acquired by talking
     defeated: set = field(default_factory=set)
     visited: set = field(default_factory=set)
     facts: set = field(default_factory=set)  # objective locations the party has learned, by name
+    met: set = field(default_factory=set)    # rooms whose NPCs the party has already greeted
     flee_counts: dict = field(default_factory=dict)
 
     party: list = field(default_factory=list)
@@ -47,6 +48,3 @@ class GameState:
 
     def alive(self) -> list:
         return [p for p in self.party if p["hp"] > 0]
-
-    def quests_done(self) -> bool:
-        return all(v == "done" for v in self.quests.values())

@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 
-from . import config
+from . import config, quests
 from .agents import agent_decide, negotiate_move
 from .combat import run_battle
-from .events import Dialogue, GameOver, Narration, NeedAction, System
+from .events import Dialogue, GameOver, Narration, NeedAction, QuestUpdate, System
 from .pipeline import run_turn
-from .speech import agent_say, banter, detect_addressee, handle_speech, looks_like_move, npc_reply, parse_player
+from .speech import agent_say, banter, detect_addressee, handle_speech, looks_like_move, npc_exchange, parse_player
 from .world import enemy_in_room, items_in_room, npcs_at, world_context
 
 
@@ -30,8 +30,24 @@ def room_has_local_work(gs):
     return bool(items_in_room(gs, gs.location) or npcs_at(gs.location))
 
 
+def announce_completions(gs):
+    """Emit a completion line for every quest whose objectives are now all secured."""
+    for title in quests.complete(gs):
+        gs.remember(f"(quest complete: {title})")
+        yield QuestUpdate(title, "completed")
+
+
+def greet_locals(gs):
+    """On first arrival in a room, greet every NPC there: acquire its quests and learn its leads."""
+    if gs.location in gs.met:
+        return
+    gs.met.add(gs.location)
+    for npc in npcs_at(gs.location):
+        yield from npc_exchange(gs, npc, "the party arrives and greets you", "the party")
+
+
 def arrive(gs, prev, mover=None):
-    """Shared post-move handling: mark moved, let others react, fight if guarded. Returns 'ok' or 'gameover'."""
+    """Shared post-move handling: mark moved, fight if guarded, then meet locals. Returns 'ok'/'gameover'/'stalemate'."""
     if gs.location == prev:
         return "ok"
     gs.round_moved = True
@@ -43,6 +59,10 @@ def arrive(gs, prev, mover=None):
             return "gameover"
         if outcome == "fled" and gs.flee_counts.get(enemy, 0) >= 2:
             return "stalemate"  # a second flee from the same foe means it cannot be beaten this way
+        if outcome == "fled":
+            return "ok"  # withdrew but may return; enemy rooms hold no NPCs to greet
+    yield from announce_completions(gs)  # a kill here may finish a quest
+    yield from greet_locals(gs)          # meet anyone new in this room
     return "ok"
 
 
@@ -87,21 +107,20 @@ def take_turn(gs, player):
             return "ok"
         preparsed = intent  # reuse the classification for the world action
 
-    if say and player["is_agent"]:  # a line aimed at a present NPC gets an answer, even mid-action
+    if say and player["is_agent"]:  # a line aimed at a present NPC gets a full exchange, even mid-action
         npc = detect_addressee(gs, say, player["name"])
         if npc in npcs_at(gs.location):
-            reply = npc_reply(gs, npc, say, player["name"])
-            gs.remember(f'{npc}: "{reply}"')
-            yield Dialogue(npc.capitalize(), reply)
+            yield from npc_exchange(gs, npc, say, player["name"])
 
     prev = gs.location
     gs.turn += 1
     res = run_turn(gs, action, player["name"], intent=preparsed)
     yield Narration(res.get("narration", "..."))
     gs.remember(f"({res.get('narration', '')})")
+    yield from announce_completions(gs)  # taking the objective item may finish a quest
     if (yield from arrive(gs, prev, mover=player)) == "gameover":
         return "gameover"
-    if gs.quests_done():
+    if quests.all_done(gs):
         yield from banter(gs, "the party has completed every quest")
     return "ok"
 
@@ -135,9 +154,10 @@ def narrate_opening(gs):
     return text
 
 
-def play(gs, max_rounds=24):
+def play(gs, max_rounds=48):
     """Drive a whole playthrough as a stream of events. This is the engine."""
     yield Narration(narrate_opening(gs))
+    yield from greet_locals(gs)  # meet the starting room's locals before the first round
     all_agent = not any(not p["is_agent"] for p in gs.party)
     for _ in range(max_rounds):
         gs.round_moved = False
@@ -149,7 +169,7 @@ def play(gs, max_rounds=24):
             if result == "stalemate":
                 yield GameOver(False, "the party cannot overcome what blocks the way and falls back for good")
                 return
-            if gs.quests_done():
+            if quests.all_done(gs):
                 yield GameOver(True, "all quests complete")
                 return
             if not room_has_local_work(gs):  # empty room after travel: skip the hold-position chatter
@@ -161,7 +181,7 @@ def play(gs, max_rounds=24):
             if (yield from take_turn(gs, p)) == "gameover":
                 yield GameOver(False, "the party has fallen")
                 return
-        if gs.quests_done():
+        if quests.all_done(gs):
             yield GameOver(True, "all quests complete")
             return
-    yield GameOver(gs.quests_done(), "out of rounds")
+    yield GameOver(quests.all_done(gs), "out of rounds")

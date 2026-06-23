@@ -10,16 +10,16 @@ consensus needs real support to override the proven route.
 from __future__ import annotations
 
 import json
+from collections import deque
 
 import networkx as nx
 
 from . import config
 from .events import Argument
 from .players import clamp
+from .quests import known_goals, knows_where, next_objective, npc_has_more
 from .schemas import AgentTurn, Proposal
-from .world import FACT_TEXT, WORLD, G, enemy_in_room, exits, items_in_room, npcs_at, world_context
-
-CHAIN = ("key", "amulet", "torch", "guardian")  # canonical order: respects deps, keeps the elder useful first
+from .world import GATES, G, enemy_in_room, exits, items_in_room, npcs_at, world_context
 
 
 def roster(gs, player):
@@ -33,55 +33,46 @@ def roster(gs, player):
     return ", ".join(out) or "no one else"
 
 
-def has_objective(gs, name):
-    """Whether the party has already secured an objective (an item carried, or the guardian slain)."""
-    return "guardian" in gs.defeated if name == "guardian" else name in gs.inventory
+def _blocked(gs, room):
+    """Whether a move-gate currently bars entry to ``room`` for want of the required item."""
+    gate = GATES.get(f"move:{room}")
+    return bool(gate) and gate["need"] not in gs.inventory
 
 
-def knows_where(gs, name):
-    """The party knows where an objective is once told of it (a fact) or once they have stood in its room."""
-    return name in gs.facts or node_room(name) in gs.visited
+def explore_hop(gs):
+    """First step toward the nearest unvisited room the party may actually enter, for blind exploration.
 
-
-def npc_reveal(gs, npc):
-    """The one lead this NPC will share now: the first leg in its slice the party does not yet know of."""
-    for name in WORLD["npcs"].get(npc, {}).get("reveals", []):
-        if not knows_where(gs, name):
-            return name
+    BFS runs over known (visited) rooms only and stops at the first unvisited, ungated-or-unlocked frontier;
+    blocked rooms (a dark crypt, a sealed sanctum) are left to the compass, which sequences their key item first.
+    """
+    q = deque([(gs.location, None)])
+    seen = {gs.location}
+    while q:
+        room, first = q.popleft()
+        for nxt in exits(room):
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            hop = nxt if first is None else first
+            if nxt not in gs.visited:
+                if not _blocked(gs, nxt):
+                    return hop  # nearest reachable frontier
+                continue        # a barred frontier: do not route through it
+            q.append((nxt, hop))  # a known room: keep searching beyond it
     return None
-
-
-def known_goals(gs):
-    """The party's actionable leads: the located-but-unclaimed objectives it currently knows of."""
-    leads = [FACT_TEXT[n] for n in CHAIN if knows_where(gs, n) and not has_objective(gs, n)]
-    return leads or ["no firm leads yet; explore the paths or ask someone who might know"]
-
-
-def node_room(name):
-    """The room a non-room node (item, npc, enemy) lives in."""
-    for _, r, e in G.out_edges(name, data=True):
-        if e["type"] in ("in", "guards", "at"):
-            return r
-    return None
-
-
-def next_objective(gs):
-    """The single most useful thing the party still needs, in the canonical chain order."""
-    nxt = next((n for n in CHAIN if not has_objective(gs, n)), None)
-    return (f"the {nxt}", node_room(nxt)) if nxt else (None, None)
 
 
 def heading(gs):
-    """Objective and the next room toward it, but only once the party has discovered where it is."""
+    """Objective and the next room toward it; when there is none or its place is unknown, steer to the frontier."""
     obj, dest = next_objective(gs)
-    if not dest:
-        return {"target": None, "go_to": None, "known": True, "unexplored": []}
     unexplored = [e for e in exits(gs.location) if e not in gs.visited]
+    if not dest:  # nothing active to chase: explore for the people who hand out the rest of the tasks
+        return {"target": None, "go_to": explore_hop(gs), "known": True, "unexplored": unexplored}
     known = knows_where(gs, obj.removeprefix("the "))
     if dest == gs.location:
         return {"target": obj, "go_to": None, "known": True, "unexplored": unexplored}
-    if not known:
-        return {"target": obj, "go_to": None, "known": False, "unexplored": unexplored}
+    if not known:  # we know it exists but not where: wander the frontier until we are told or stumble on it
+        return {"target": obj, "go_to": explore_hop(gs), "known": False, "unexplored": unexplored}
     try:
         path = nx.shortest_path(G, gs.location, dest)
         return {"target": obj, "go_to": (path[1] if len(path) > 1 else None), "known": True, "unexplored": unexplored}
@@ -93,7 +84,7 @@ def navigation_options(gs):
     """Rooms the party may move to, plus 'stay' only when something here is worth staying for."""
     opts = exits(gs.location)
     worth_staying = bool(items_in_room(gs, gs.location) or enemy_in_room(gs, gs.location)
-                         or any(npc_reveal(gs, n) for n in npcs_at(gs.location)))
+                         or any(npc_has_more(gs, n) for n in npcs_at(gs.location)))
     return opts + (["stay"] if worth_staying or not opts else [])
 
 

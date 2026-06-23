@@ -15,7 +15,6 @@ import json
 
 from . import config
 from .events import NeedBattleChoice, System
-from .players import refresh_quests
 from .schemas import CombatMove
 from .speech import banter
 from .world import G
@@ -163,7 +162,6 @@ def run_battle(gs, enemy, prev_room):
             yield System(f"the {enemy} strikes {tgt['name']} for {dmg} (hp {tgt['hp']}).")
     if ehp <= 0:
         gs.defeated.add(enemy)
-        refresh_quests(gs)
         yield System(f"-- the {enemy} is defeated! --")
         gs.remember(f"(the party defeated the {enemy})")
         yield from banter(gs, f"the party just defeated the {enemy}")

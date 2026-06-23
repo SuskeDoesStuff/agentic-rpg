@@ -20,6 +20,8 @@ def render(ev):
         print(f"  {ev.text}")
     elif isinstance(ev, events.Argument):
         print(f'  {ev.speaker} argues for {ev.destination}: "{ev.reason}"')
+    elif isinstance(ev, events.QuestUpdate):
+        print(f"Quest: {ev.title} {ev.status}")
     elif isinstance(ev, events.GameOver):
         print(f"\n== {'all quests complete' if ev.won else 'game over'} ==")
 

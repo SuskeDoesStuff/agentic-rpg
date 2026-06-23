@@ -10,12 +10,11 @@ from __future__ import annotations
 import json
 import re
 
-from . import config
-from .agents import npc_reveal
-from .events import Dialogue
+from . import config, quests
+from .events import Dialogue, QuestUpdate
 from .pipeline import PARSE_SYS
 from .schemas import Intent
-from .world import FACT_TEXT, WORLD, npcs_at
+from .world import WORLD, npcs_at
 
 MOVE_WORDS = {"go", "move", "head", "walk", "enter", "travel", "return", "back"}
 
@@ -46,23 +45,34 @@ def agent_say(gs, player, situation, allow_silence=True):
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9).strip().strip('"')
 
 
-def npc_reply(gs, npc, message, speaker):
-    """An NPC answers in character, sharing only its slice of the lore and granting that fact to the party."""
+def npc_reply(gs, npc, message, speaker, leads=None):
+    """An NPC answers in character, voicing only the leads it has been handed (granting facts is the caller's job)."""
     info = WORLD.get("npcs", {}).get(npc, {})
     role = info.get("role", f"a {npc}")
     voice = info.get("voice", "someone who knows little beyond this room")
-    name = npc_reveal(gs, npc)
-    lead = FACT_TEXT[name] if name else None
-    if name:
-        gs.facts.add(name)
+    leads = leads or []
     sysm = (f"You are {npc}, {role}. You are {voice}. A traveler addresses you; reply in character in 1-2 "
-            "sentences. If 'lead' is given, convey its meaning in your own voice and let the traveler draw their "
-            "own conclusions; never recite it as a bare fact and never name a compass, an objective, a quest, or "
-            "any game term. If 'lead' is null you have nothing new to offer, so say so briefly in character. Invent "
-            "no places, items, people, or lore beyond 'lead'. 'recent' is only the latest talk; do not repeat "
-            "yourself word for word, though you may note you have spoken of it before.")
-    usr = json.dumps({"traveler": speaker, "said": message, "lead": lead, "recent": gs.recent_memory(6)})
-    return config.work_text([("system", sysm), ("human", usr)], max_tokens=70, temperature=0.7)
+            "sentences. If 'leads' is non-empty, convey what they mean in your own voice and let the traveler draw "
+            "their own conclusions; never recite them as a bare list and never name a compass, an objective, a "
+            "quest, or any game term. If 'leads' is empty you have nothing new to offer, so greet them or say so "
+            "briefly in character. Invent no places, items, people, or lore beyond 'leads'. 'recent' is only the "
+            "latest talk; do not repeat yourself word for word.")
+    usr = json.dumps({"traveler": speaker, "said": message, "leads": leads, "recent": gs.recent_memory(6)})
+    return config.work_text([("system", sysm), ("human", usr)], max_tokens=80, temperature=0.7)
+
+
+def npc_exchange(gs, npc, message, speaker):
+    """One full exchange with an NPC: acquire its quests, learn its leads, voice the reply. Yields events."""
+    outcome = quests.talk(gs, npc)
+    for title in outcome["acquired"]:
+        gs.remember(f"(quest acquired: {title})")
+        yield QuestUpdate(title, "acquired")
+    line = npc_reply(gs, npc, message, speaker, outcome["leads"])
+    gs.remember(f'{npc}: "{line}"')
+    yield Dialogue(npc.capitalize(), line)
+    for title in quests.complete(gs):  # a talk can finish a quest whose deeds were already done
+        gs.remember(f"(quest complete: {title})")
+        yield QuestUpdate(title, "completed")
 
 
 def parse_player(gs, text):
@@ -98,10 +108,8 @@ def handle_speech(gs, speaker, message, addressee="", announce=True):
     if announce:
         gs.remember(f'{speaker}: "{message}"')
         yield Dialogue(speaker, message)
-    if addressee in npcs_at(gs.location):  # name -> that NPC speaks
-        line = npc_reply(gs, addressee, message, speaker)
-        gs.remember(f'{addressee}: "{line}"')
-        yield Dialogue(addressee.capitalize(), line)
+    if addressee in npcs_at(gs.location):  # name -> that NPC speaks, granting quests and leads
+        yield from npc_exchange(gs, addressee, message, speaker)
         return
     agent = next((p for p in gs.alive() if p["is_agent"] and p["name"].lower() == addressee), None)
     if agent:  # name -> that agent answers

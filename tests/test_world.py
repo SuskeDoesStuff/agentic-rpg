@@ -8,8 +8,8 @@ from rpg import players, world
 
 
 def test_world_builds_and_is_reachable():
-    assert world.G.number_of_nodes() == 15
-    assert world.G.number_of_edges() == 20
+    assert world.G.number_of_nodes() == 24
+    assert world.G.number_of_edges() == 33
     reachable = nx.descendants(world.G, world.START) | {world.START}
     assert all(r in reachable for r in world.WORLD["rooms"])
 
@@ -21,9 +21,11 @@ def test_build_world_rejects_dangling_exit():
 
 
 def test_graph_helpers_read_state(game):
-    assert world.exits("village") == ["market", "forest", "bridge"] or set(world.exits("village")) == {"market", "forest", "bridge"}
+    assert set(world.exits("village")) == {"market", "forest", "bridge", "tavern"}
     assert set(world.items_in_room(game, "market")) == {"torch", "potion"}
     assert world.npcs_at("village") == ["elder"]
+    assert world.npcs_at("chapel") == ["priest"]
+    assert world.enemy_in_room(game, "grove") == "bear"
     assert world.enemy_in_room(game, "cave") == "wolf"
     game.defeated.add("wolf")
     assert world.enemy_in_room(game, "cave") is None  # a defeated enemy is gone

@@ -13,8 +13,9 @@ import pytest
 
 from rpg import config, players
 
-ROOMS = ["village", "market", "forest", "cave", "bridge", "ruins", "crypt"]
-ITEMS = ["torch", "potion", "key", "amulet"]
+ROOMS = ["village", "market", "tavern", "forest", "cave", "grove", "bridge", "ruins", "crypt", "chapel", "sanctum"]
+ITEMS = ["torch", "potion", "key", "amulet", "ward"]
+NPCS = ["elder", "merchant", "barkeep", "priest"]
 
 
 def _intent(text):
@@ -27,7 +28,7 @@ def _intent(text):
             room = "back"  # let the pipeline resolve this to the previous room
         return {"action": "move", "target": room, "message": ""}
     if "talk" in t or "ask" in t:
-        return {"action": "talk", "target": next((n for n in ("elder", "merchant") if n in t), ""), "message": ""}
+        return {"action": "talk", "target": next((n for n in NPCS if n in t), ""), "message": ""}
     return {"action": "look", "target": "", "message": ""}
 
 

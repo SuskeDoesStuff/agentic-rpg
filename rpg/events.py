@@ -39,6 +39,13 @@ class Argument:
 
 
 @dataclass
+class QuestUpdate:
+    """A quest entering or leaving the log; rendered as 'Quest: <title> <status>'."""
+    title: str
+    status: str  # "acquired" or "completed"
+
+
+@dataclass
 class NeedAction:
     """Request a human's world action; resume the engine with the typed string."""
     actor: str

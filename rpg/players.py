@@ -68,11 +68,3 @@ def new_game(party, start="village"):
         p["hp"] = p["max_hp"]
         p["mana"] = p["max_mana"]
     return GameState(location=start, party=list(party), visited={start})
-
-
-def refresh_quests(gs: GameState):
-    """Mark quests done once their condition holds; the only place quest status flips."""
-    if "amulet" in gs.inventory:
-        gs.quests["retrieve_amulet"] = "done"
-    if "guardian" in gs.defeated:
-        gs.quests["slay_guardian"] = "done"
