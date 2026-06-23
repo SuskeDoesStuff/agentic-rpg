@@ -42,7 +42,7 @@ def agent_say(gs, player, situation, allow_silence=True):
             "you are alone, speak your own resolve and address no one. Never address an absent ally, a 'team' or "
             f"'party' that is not here, or an NPC who is not in this room. {rule} No quotes.")
     usr = json.dumps({"situation": situation, "recent": gs.recent_memory()})
-    return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9).strip().strip('"')
+    return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9, label="agent_say").strip().strip('"')
 
 
 def npc_reply(gs, npc, message, speaker, leads=None):
@@ -58,7 +58,7 @@ def npc_reply(gs, npc, message, speaker, leads=None):
             "briefly in character. Invent no places, items, people, or lore beyond 'leads'. 'recent' is only the "
             "latest talk; do not repeat yourself word for word.")
     usr = json.dumps({"traveler": speaker, "said": message, "leads": leads, "recent": gs.recent_memory(6)})
-    return config.work_text([("system", sysm), ("human", usr)], max_tokens=80, temperature=0.7)
+    return config.work_text([("system", sysm), ("human", usr)], max_tokens=80, temperature=0.7, label="npc_reply")
 
 
 def npc_exchange(gs, npc, message, speaker):

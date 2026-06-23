@@ -66,7 +66,7 @@ def _work_struct(schema, messages, temperature=None):
     return {}
 
 
-def _work_text(messages, max_tokens=160, temperature=None):
+def _work_text(messages, max_tokens=160, temperature=None, label="work_text"):
     return "The party presses onward through the gloom."
 
 

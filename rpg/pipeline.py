@@ -140,7 +140,7 @@ def narrate(state):
                       "now": narr_view(ctx), "before": narr_view(prev)})
     text = None
     for _ in range(3):  # regenerate if it names an out-of-scope entity or leaks mechanics
-        cand = config.work_text([("system", sysm), ("human", usr)], max_tokens=90, temperature=0.8)
+        cand = config.work_text([("system", sysm), ("human", usr)], max_tokens=90, temperature=0.8, label="narrate")
         if narration_ok(cand, allowed):
             text = cand
             break
@@ -153,7 +153,7 @@ def narrate_refusal(state):
     sysm = ("You are a fantasy narrator. One sentence, third person: tell the actor they can't do that, using "
             "the given reason. Stay in character; invent nothing.")
     usr = json.dumps({"actor": state.get("actor", "the party"), "reason": state.get("reason", "")})
-    text = config.work_text([("system", sysm), ("human", usr)], max_tokens=50)
+    text = config.work_text([("system", sysm), ("human", usr)], max_tokens=50, label="narrate_refusal")
     return {"narration": text, "post_context": world_context(state["gs"], state["gs"].location)}
 
 

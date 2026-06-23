@@ -15,6 +15,8 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
+from . import tracing
+
 WORK_MODEL = os.environ.get("RPG_WORK_MODEL", "gpt-5.4-mini")
 JUDGE_MODEL = os.environ.get("RPG_JUDGE_MODEL", "gpt-5.4")
 
@@ -42,25 +44,31 @@ def work_struct(schema, messages, temperature=None):
     llm = _llm(WORK_MODEL)
     client = llm.bind(temperature=temperature) if temperature is not None else llm
     try:
-        return client.with_structured_output(schema).invoke(messages).model_dump()
+        out = client.with_structured_output(schema).invoke(messages).model_dump()
     except Exception:
-        return _llm(WORK_MODEL).with_structured_output(schema).invoke(messages).model_dump()
+        out = _llm(WORK_MODEL).with_structured_output(schema).invoke(messages).model_dump()
+    tracing.record(f"work_struct:{schema.__name__}", WORK_MODEL, messages, out)
+    return out
 
 
 def judge_struct(schema, messages):
     """Typed JSON from the full-tier judge model."""
-    return _llm(JUDGE_MODEL).with_structured_output(schema).invoke(messages).model_dump()
+    out = _llm(JUDGE_MODEL).with_structured_output(schema).invoke(messages).model_dump()
+    tracing.record(f"judge_struct:{schema.__name__}", JUDGE_MODEL, messages, out)
+    return out
 
 
-def work_text(messages, max_tokens=160, temperature=None):
+def work_text(messages, max_tokens=160, temperature=None, label="work_text"):
     """Free prose from the workhorse model, degrading gracefully if binds are unsupported."""
     binds = {"max_tokens": max_tokens}
     if temperature is not None:
         binds["temperature"] = temperature
     try:
-        return _llm(WORK_MODEL).bind(**binds).invoke(messages).content
+        out = _llm(WORK_MODEL).bind(**binds).invoke(messages).content
     except Exception:
         try:
-            return _llm(WORK_MODEL).bind(max_tokens=max_tokens).invoke(messages).content
+            out = _llm(WORK_MODEL).bind(max_tokens=max_tokens).invoke(messages).content
         except Exception:
-            return _llm(WORK_MODEL).invoke(messages).content
+            out = _llm(WORK_MODEL).invoke(messages).content
+    tracing.record(label, WORK_MODEL, messages, out)
+    return out

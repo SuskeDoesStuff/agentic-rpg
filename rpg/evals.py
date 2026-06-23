@@ -111,7 +111,7 @@ def endtoend_guardrail_eval():
 
     orig_struct, orig_text = config.work_struct, config.work_text
     config.work_struct = stub_struct
-    config.work_text = lambda messages, max_tokens=160, temperature=None: "A still moment passes in the gloom."
+    config.work_text = lambda messages, max_tokens=160, temperature=None, label="work_text": "A still moment passes in the gloom."
     blocked = total = 0
     try:
         for phantom in (False, True):

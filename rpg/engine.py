@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from . import config, quests
+from . import config, quests, tracing
 from .agents import agent_decide, negotiate_move
 from .combat import run_battle
 from .events import Dialogue, GameOver, Narration, NeedAction, QuestUpdate, System
@@ -149,13 +149,23 @@ def narrate_opening(gs):
             "their starting room and the paths and people in it. Use only what is in the context, invent nothing.")
     text = config.work_text([("system", sysm),
                              ("human", json.dumps({"party": party, "room": world_context(gs, gs.location)}))],
-                            max_tokens=120, temperature=0.85)
+                            max_tokens=120, temperature=0.85, label="narrate_opening")
     gs.remember(f"(opening) {text}")
     return text
 
 
 def play(gs, max_rounds=48):
-    """Drive a whole playthrough as a stream of events. This is the engine."""
+    """Drive a whole playthrough as a stream of events, under one tracing session. This is the engine."""
+    token = tracing.begin_session("rpg-game",
+                                  party=[p["name"] for p in gs.party],
+                                  models={"work": config.WORK_MODEL, "judge": config.JUDGE_MODEL})
+    try:
+        yield from _play(gs, max_rounds)
+    finally:
+        tracing.end_session(token)
+
+
+def _play(gs, max_rounds=48):
     yield Narration(narrate_opening(gs))
     yield from greet_locals(gs)  # meet the starting room's locals before the first round
     all_agent = not any(not p["is_agent"] for p in gs.party)

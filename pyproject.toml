@@ -19,6 +19,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 ui = ["streamlit>=1.36"]
+tracing = ["langfuse>=3"]
 
 [project.scripts]
 rpg = "rpg.cli:main"
