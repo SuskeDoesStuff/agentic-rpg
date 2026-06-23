@@ -22,6 +22,7 @@ ui = ["streamlit>=1.36"]
 
 [project.scripts]
 rpg = "rpg.cli:main"
+rpg-eval = "rpg.evals:main"
 
 [tool.setuptools.packages.find]
 include = ["rpg*"]
