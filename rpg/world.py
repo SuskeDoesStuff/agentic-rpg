@@ -36,15 +36,32 @@ WORLD = {
         "guardian": {"hp": 26, "attack": 7},
     },
     "npcs": {
-        "elder":    {"role": "the aged village elder, calm and a little cryptic", "knows": "quests"},
-        "merchant": {"role": "a sharp-eyed trader minding the market stall", "knows": "wares"},
+        "elder":    {"role": "the aged village elder, calm and a little cryptic",
+                     "voice": "an old keeper of this land's lore who doles out the next step and no more",
+                     "reveals": ["key", "amulet", "guardian"]},
+        "merchant": {"role": "a sharp-eyed trader minding the market stall",
+                     "voice": "a market trader who speaks only of the wares on the table and knows nothing of "
+                              "far places, quests, or where anything else lies",
+                     "reveals": ["torch"]},
     },
     # "action:target" -> the inventory item required, plus the in-character refusal line
     "gates": {
-        "move:crypt":  {"need": "torch", "reason": "The crypt is pitch dark; you need a light to enter."},
-        "take:amulet": {"need": "key",   "reason": "The amulet sits in a locked shrine; you need a key."},
+        "move:crypt":  {"need": "torch",
+                        "reason": "The crypt is pitch dark; you need a torch, such as the one sold in the market."},
+        "take:amulet": {"need": "key",
+                        "reason": "The amulet sits in a locked shrine; you need the key from the cave past the forest."},
     },
 }
+
+# The party's leads, one per objective; NPCs voice these in character and the agent reads them as goals.
+FACT_TEXT = {
+    "torch":    "a torch waits in the market, a light for the dark places",
+    "key":      "a key lies in the cave past the forest, with a wolf set to guard it",
+    "amulet":   "the amulet rests in the ruins, sealed behind a locked shrine",
+    "guardian": "a guardian holds the crypt, and the crypt is pitch dark",
+}
+# Bumping a gate teaches where to get what it demands (so no objective is ever orphaned), plus what it guards.
+GATE_FACT = {"move:crypt": ("guardian", "torch"), "take:amulet": ("amulet", "key")}
 
 
 def build_world(spec):

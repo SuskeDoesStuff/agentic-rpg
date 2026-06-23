@@ -11,11 +11,11 @@ import json
 import re
 
 from . import config
-from .agents import open_goals
+from .agents import npc_reveal
 from .events import Dialogue
 from .pipeline import PARSE_SYS
 from .schemas import Intent
-from .world import WORLD, items_in_room, npcs_at
+from .world import FACT_TEXT, WORLD, npcs_at
 
 MOVE_WORDS = {"go", "move", "head", "walk", "enter", "travel", "return", "back"}
 
@@ -47,21 +47,21 @@ def agent_say(gs, player, situation, allow_silence=True):
 
 
 def npc_reply(gs, npc, message, speaker):
-    """An NPC's reply, grounded only in facts derived from world state; a quests NPC grants intel."""
+    """An NPC answers in character, sharing only its slice of the lore and granting that fact to the party."""
     info = WORLD.get("npcs", {}).get(npc, {})
     role = info.get("role", f"a {npc}")
-    facts = {}
-    if info.get("knows") == "quests":
-        facts["open_goals"] = open_goals(gs)
-        gs.intel = True
-    elif info.get("knows") == "wares":
-        facts["wares_here"] = items_in_room(gs, gs.location)
-        facts["note"] = "there is no coin here; travelers simply take what they need"
-    sysm = (f"You are {npc}, {role}. A traveler addresses you. Reply in character in 1-2 sentences, somewhere "
-            "between chatty and terse. 'facts' are your ONLY source of world knowledge; never invent places, "
-            "items, people, or lore. 'recent' is just the latest talk: do not repeat advice you already gave word "
-            "for word, you may note you have said it before.")
-    usr = json.dumps({"traveler": speaker, "said": message, "facts": facts, "recent": gs.recent_memory(6)})
+    voice = info.get("voice", "someone who knows little beyond this room")
+    name = npc_reveal(gs, npc)
+    lead = FACT_TEXT[name] if name else None
+    if name:
+        gs.facts.add(name)
+    sysm = (f"You are {npc}, {role}. You are {voice}. A traveler addresses you; reply in character in 1-2 "
+            "sentences. If 'lead' is given, convey its meaning in your own voice and let the traveler draw their "
+            "own conclusions; never recite it as a bare fact and never name a compass, an objective, a quest, or "
+            "any game term. If 'lead' is null you have nothing new to offer, so say so briefly in character. Invent "
+            "no places, items, people, or lore beyond 'lead'. 'recent' is only the latest talk; do not repeat "
+            "yourself word for word, though you may note you have spoken of it before.")
+    usr = json.dumps({"traveler": speaker, "said": message, "lead": lead, "recent": gs.recent_memory(6)})
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=70, temperature=0.7)
 
 

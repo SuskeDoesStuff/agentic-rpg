@@ -19,7 +19,7 @@ from langgraph.graph import END, StateGraph
 from . import config
 from .players import refresh_quests
 from .schemas import Intent, Resolution
-from .world import GATES, G, world_context
+from .world import GATE_FACT, GATES, G, world_context
 
 BANNED = ("quest", "quests", "xp", "respawn", "cooldown", "hitpoints", "gameplay", "sidequest")
 MAX_RETRIES = 2
@@ -64,9 +64,12 @@ def validate_action(state):
     elif action not in ("move", "take", "talk", "look", "use"):
         valid, reason = False, "You can't do that."
     if valid:  # structurally ok -> apply any declarative gate
-        gate = GATES.get(f"{action}:{target}")
+        gatekey = f"{action}:{target}"
+        gate = GATES.get(gatekey)
         if gate and gate["need"] not in ctx["inventory"]:
             valid, reason = False, gate["reason"]
+            if GATE_FACT.get(gatekey):  # turned back -> learn what blocks the way and where to answer it
+                state["gs"].facts.update(GATE_FACT[gatekey])
     return {"valid": valid, "reason": reason}
 
 

@@ -135,7 +135,7 @@ def narrate_opening(gs):
     return text
 
 
-def play(gs, max_rounds=16):
+def play(gs, max_rounds=24):
     """Drive a whole playthrough as a stream of events. This is the engine."""
     yield Narration(narrate_opening(gs))
     all_agent = not any(not p["is_agent"] for p in gs.party)

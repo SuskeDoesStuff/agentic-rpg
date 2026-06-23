@@ -21,7 +21,7 @@ class GameState:
     quests: dict = field(default_factory=lambda: {"retrieve_amulet": "open", "slay_guardian": "open"})
     defeated: set = field(default_factory=set)
     visited: set = field(default_factory=set)
-    intel: bool = False
+    facts: set = field(default_factory=set)  # objective locations the party has learned, by name
     flee_counts: dict = field(default_factory=dict)
 
     party: list = field(default_factory=list)
