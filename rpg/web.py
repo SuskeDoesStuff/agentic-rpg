@@ -17,6 +17,7 @@ import json
 import math
 import os
 import threading
+import traceback
 
 import networkx as nx
 from fastapi import FastAPI, Query
@@ -127,19 +128,26 @@ def _stream(spec, rounds):
             return
         yield _sse({"type": "start", "location": gs.location, "party": [_party_view(p) for p in party]})
         last_room, last_snap = None, None
-        for ev in engine.play(gs, max_rounds=rounds):
-            payload = _serialize(ev)
-            if payload:
-                yield _sse(payload)
-            if gs.location != last_room:
-                last_room = gs.location
-                yield _sse({"type": "location", "room": gs.location})
-            snap = tuple((p["hp"], p["mana"]) for p in gs.party)
-            if snap != last_snap:
-                last_snap = snap
-                yield _sse({"type": "party", "party": [_party_view(p) for p in gs.party]})
-            if isinstance(ev, events.GameOver):
-                break
+        try:
+            for ev in engine.play(gs, max_rounds=rounds):
+                payload = _serialize(ev)
+                if payload:
+                    yield _sse(payload)
+                if gs.location != last_room:
+                    last_room = gs.location
+                    yield _sse({"type": "location", "room": gs.location})
+                snap = tuple((p["hp"], p["mana"]) for p in gs.party)
+                if snap != last_snap:
+                    last_snap = snap
+                    yield _sse({"type": "party", "party": [_party_view(p) for p in gs.party]})
+                if isinstance(ev, events.GameOver):
+                    break
+        except Exception as exc:
+            # Surface, never die silently: full traceback to the server log, a short note to the watcher.
+            traceback.print_exc()
+            yield _sse({"type": "error",
+                        "message": f"The game stopped: {type(exc).__name__}: {exc}"[:300]})
+            return
     finally:
         _slots.release()
 
@@ -181,7 +189,7 @@ PAGE = r"""<!doctype html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Agentic RPG — watch LLM agents turn this world upside down</title>
+<title>Agent RPG: Watch LLM Agents Turn This World Upside Down</title>
 <style>
   :root{
     --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
@@ -295,8 +303,8 @@ PAGE = r"""<!doctype html>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Agentic RPG</h1>
-      <span class="tag">Watch LLM agents turn this world upside down</span>
+      <h1>Agent RPG</h1>
+      <span class="tag">Watch LLM Agents Turn This World Upside Down</span>
     </div>
     <div class="actions">
       <button class="ghost" id="theme">Dark mode</button>

@@ -74,3 +74,20 @@ def test_play_without_a_key_reports_honestly(monkeypatch):
     evs = _events(r.text)
     assert [e["type"] for e in evs] == ["error"]        # one honest error, no faked game
     assert "API key" in evs[0]["message"]
+
+
+def test_play_surfaces_a_mid_game_failure(monkeypatch):
+    monkeypatch.setattr(config, "has_key", lambda: True)
+
+    def boom(*a, **k):
+        raise RuntimeError("model exploded")
+        yield  # never reached; makes this a generator so it matches engine.play
+
+    monkeypatch.setattr(web.engine, "play", boom)
+    party = json.dumps([{"name": "Borin", "class_desc": "a vanguard", "personality": "bold"}])
+    r = client.get("/play", params={"party": party, "rounds": 2})
+    evs = _events(r.text)
+    kinds = [e["type"] for e in evs]
+    assert kinds[0] == "start"                          # party built, game opened
+    assert kinds[-1] == "error"                         # then the failure is shown, not swallowed
+    assert "model exploded" in evs[-1]["message"]
