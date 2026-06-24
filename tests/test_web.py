@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import json
 
-from fastapi.testclient import TestClient
+import pytest
 
-from rpg import config, web
-from rpg.world import WORLD
+pytest.importorskip("fastapi")  # the web extra is optional; skip rather than error when absent
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from rpg import config, web  # noqa: E402  (rpg.web imports fastapi, so it must follow the skip)
+from rpg.world import WORLD  # noqa: E402
 
 client = TestClient(web.app)
 
