@@ -41,7 +41,7 @@ def agent_say(gs, player, situation, allow_silence=True):
             f"right now: {present}. React with ONE short in-character line. Address only someone present by name; if "
             "you are alone, speak your own resolve and address no one. Never address an absent ally, a 'team' or "
             f"'party' that is not here, or an NPC who is not in this room. {rule} No quotes.")
-    usr = json.dumps({"situation": situation, "recent": gs.recent_memory()})
+    usr = json.dumps({"situation": situation, "recent": gs.recent_dialogue()})
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9, label="agent_say").strip().strip('"')
 
 
@@ -57,7 +57,7 @@ def npc_reply(gs, npc, message, speaker, leads=None):
             "quest, or any game term. If 'leads' is empty you have nothing new to offer, so greet them or say so "
             "briefly in character. Invent no places, items, people, or lore beyond 'leads'. 'recent' is only the "
             "latest talk; do not repeat yourself word for word.")
-    usr = json.dumps({"traveler": speaker, "said": message, "leads": leads, "recent": gs.recent_memory(6)})
+    usr = json.dumps({"traveler": speaker, "said": message, "leads": leads, "recent": gs.recent_dialogue(6)})
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=80, temperature=0.7, label="npc_reply")
 
 
@@ -68,7 +68,7 @@ def npc_exchange(gs, npc, message, speaker):
         gs.remember(f"(quest acquired: {title})")
         yield QuestUpdate(title, "acquired")
     line = npc_reply(gs, npc, message, speaker, outcome["leads"])
-    gs.remember(f'{npc}: "{line}"')
+    gs.remember_speech(f'{npc}: "{line}"')
     yield Dialogue(npc.capitalize(), line)
     for title in quests.complete(gs):  # a talk can finish a quest whose deeds were already done
         gs.remember(f"(quest complete: {title})")
@@ -96,7 +96,7 @@ def banter(gs, situation, exclude=None):
             continue
         line = agent_say(gs, p, situation, allow_silence=True)
         if line:
-            gs.remember(f'{p["name"]}: "{line}"')
+            gs.remember_speech(f'{p["name"]}: "{line}"')
             yield Dialogue(p["name"], line)
 
 
@@ -106,7 +106,7 @@ def handle_speech(gs, speaker, message, addressee="", announce=True):
     if not addressee:
         addressee = detect_addressee(gs, message, speaker)
     if announce:
-        gs.remember(f'{speaker}: "{message}"')
+        gs.remember_speech(f'{speaker}: "{message}"')
         yield Dialogue(speaker, message)
     if addressee in npcs_at(gs.location):  # name -> that NPC speaks, granting quests and leads
         yield from npc_exchange(gs, addressee, message, speaker)
@@ -115,7 +115,7 @@ def handle_speech(gs, speaker, message, addressee="", announce=True):
     if agent:  # name -> that agent answers
         reply = agent_say(gs, agent, f'{speaker} says to you: "{message}"', allow_silence=False)
         if reply:
-            gs.remember(f'{agent["name"]}: "{reply}"')
+            gs.remember_speech(f'{agent["name"]}: "{reply}"')
             yield Dialogue(agent["name"], reply)
         return
     for p in gs.alive():  # unaddressed -> whole party, silent-skip
@@ -123,5 +123,5 @@ def handle_speech(gs, speaker, message, addressee="", announce=True):
             continue
         reply = agent_say(gs, p, f'{speaker} said: "{message}"', allow_silence=True)
         if reply:
-            gs.remember(f'{p["name"]}: "{reply}"')
+            gs.remember_speech(f'{p["name"]}: "{reply}"')
             yield Dialogue(p["name"], reply)

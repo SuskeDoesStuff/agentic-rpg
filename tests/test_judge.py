@@ -7,7 +7,7 @@ cleanly when none is set.
 """
 from __future__ import annotations
 
-from rpg import evals, judge
+from rpg import config, evals, judge
 
 
 def test_guardrail_detects_and_contains_every_fabrication():
@@ -60,5 +60,12 @@ def test_summarize_handles_empty():
     assert s["n"] == 0 and s["mean_score"] is None
 
 
-def test_judge_eval_skips_without_a_key():
-    assert "skipped" in evals.judge_eval()  # no OPENAI_API_KEY in the test environment
+def test_judge_eval_skips_without_a_key(monkeypatch):
+    monkeypatch.setattr(config, "has_key", lambda: False)  # control the key, don't depend on the environment
+    assert "skipped" in evals.judge_eval()
+
+
+def test_judge_eval_runs_when_a_key_is_present(monkeypatch):
+    monkeypatch.setattr(config, "has_key", lambda: True)   # the model calls are stubbed by conftest
+    out = evals.judge_eval(max_rounds=2, cap=6)
+    assert "skipped" not in out and "n" in out and out["clean_rate"] is not None

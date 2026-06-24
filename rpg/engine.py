@@ -92,7 +92,7 @@ def take_turn(gs, player):
                 continue
             break
     if say:
-        gs.remember(f'{player["name"]}: "{say}"')
+        gs.remember_speech(f'{player["name"]}: "{say}"')
         yield Dialogue(player["name"], say)
 
     if action:  # speech is its own channel and never hits the world pipeline

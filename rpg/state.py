@@ -26,7 +26,9 @@ class GameState:
     flee_counts: dict = field(default_factory=dict)
 
     party: list = field(default_factory=list)
-    memory: list = field(default_factory=list)
+    memory: list = field(default_factory=list)      # events: narration, combat, quest markers, votes
+    dialogue: list = field(default_factory=list)     # spoken lines only, in their own lane events cannot evict
+    _seq: int = 0                                     # monotonic tick so the two lanes can be merged in true order
     turn: int = 0
     round_moved: bool = False
 
@@ -39,12 +41,26 @@ class GameState:
     scripted_actions: list = field(default_factory=list)
     scripted_battle: list = field(default_factory=list)
 
-    def remember(self, line: str, keep: int = 14) -> None:
-        self.memory.append(line)
+    def remember(self, line: str, keep: int = 16) -> None:
+        """Record a world event (narration, combat, a quest marker). Crowded lane; evicts fast."""
+        self._seq += 1
+        self.memory.append((self._seq, line))
         del self.memory[:-keep]
 
-    def recent_memory(self, n: int = 8) -> list:
-        return self.memory[-n:]
+    def remember_speech(self, line: str, keep: int = 16) -> None:
+        """Record a spoken line. Its own lane, so narration and combat can never push conversation out."""
+        self._seq += 1
+        self.dialogue.append((self._seq, line))
+        del self.dialogue[:-keep]
+
+    def recent_memory(self, n: int = 8, dialogue: int = 4) -> list:
+        """The situational view a decision-maker sees: recent events plus a little recent talk, in true order."""
+        merged = self.memory[-n:] + self.dialogue[-dialogue:]
+        return [line for _, line in sorted(merged, key=lambda x: x[0])]
+
+    def recent_dialogue(self, n: int = 8) -> list:
+        """The conversation thread a speaker sees: only recent spoken lines, undiluted by narration."""
+        return [line for _, line in self.dialogue[-n:]]
 
     def alive(self) -> list:
         return [p for p in self.party if p["hp"] > 0]
