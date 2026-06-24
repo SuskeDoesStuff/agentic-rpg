@@ -189,7 +189,7 @@ PAGE = r"""<!doctype html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Agent RPG: Watch LLM Agents Turn This World Upside Down</title>
+<title>Agentic RPG: Watch LLM Agents Turn This World Upside Down</title>
 <style>
   :root{
     --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
@@ -303,7 +303,7 @@ PAGE = r"""<!doctype html>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Agent RPG</h1>
+      <h1>Agentic RPG</h1>
       <span class="tag">Watch LLM Agents Turn This World Upside Down</span>
     </div>
     <div class="actions">
