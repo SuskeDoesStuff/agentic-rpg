@@ -14,6 +14,7 @@ game. Tracing, if configured, is handled inside ``engine.play`` per session.
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 
@@ -32,7 +33,11 @@ app = FastAPI(title="Agentic RPG")
 
 
 def _room_layout():
-    """Lay the world's rooms out once as a 2D graph the page can draw; coordinates normalized to [0,1]."""
+    """Lay the world's rooms out once as a 2D graph the page can draw; coordinates normalized to [0,1].
+
+    Prefers a force-directed layout for an organic map; falls back to a pure-Python
+    ring if the numerical backend is missing, so the server still boots anywhere.
+    """
     rooms = list(WORLD["rooms"])
     rg = nx.Graph()
     rg.add_nodes_from(rooms)
@@ -45,18 +50,20 @@ def _room_layout():
                 rg.add_edge(r, nb)
                 edges.append([r, nb])
     try:
-        pos = nx.spring_layout(rg, seed=7, iterations=300)
+        pos = nx.spring_layout(rg, seed=7, k=0.55, iterations=400)
     except Exception:
-        pos = nx.circular_layout(rg)
-    xs = [p[0] for p in pos.values()] or [0.0]
-    ys = [p[1] for p in pos.values()] or [0.0]
+        n = len(rooms)
+        pos = {r: (math.cos(2 * math.pi * i / max(1, n)), math.sin(2 * math.pi * i / max(1, n)))
+               for i, r in enumerate(rooms)}
+    xs = [float(pos[r][0]) for r in rooms] or [0.0]
+    ys = [float(pos[r][1]) for r in rooms] or [0.0]
     lo_x, hi_x, lo_y, hi_y = min(xs), max(xs), min(ys), max(ys)
 
     def norm(v, lo, hi):
         return 0.5 if hi == lo else (v - lo) / (hi - lo)
 
-    nodes = [{"id": r, "x": round(norm(pos[r][0], lo_x, hi_x), 4),
-              "y": round(norm(pos[r][1], lo_y, hi_y), 4)} for r in rooms]
+    nodes = [{"id": r, "x": round(norm(float(pos[r][0]), lo_x, hi_x), 4),
+              "y": round(norm(float(pos[r][1]), lo_y, hi_y), 4)} for r in rooms]
     return {"nodes": nodes, "edges": edges, "start": START}
 
 
@@ -170,97 +177,114 @@ if __name__ == "__main__":
 
 
 PAGE = r"""<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Agentic RPG — a watched game</title>
+<title>Agentic RPG — watch LLM agents turn this world upside down</title>
 <style>
   :root{
-    --ink:#14181f; --ink2:#0f131a; --panel:#1b212b; --line:#2b333f;
-    --parch:#e8dfce; --muted:#8a93a3; --gold:#d9a441; --steel:#8fb0cf;
-    --ember:#cf6a5e; --sage:#7fb58e;
     --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
+  /* LIGHT (default): the palette you chose — snow, silver, powder, slate, jade, red */
+  html[data-theme="light"]{
+    --bg:#fcfafa; --bg2:#f1f4f4; --panel:#ffffff; --panel2:#f4f6f6;
+    --line:#c8d3d5; --line2:#a4b8c4;
+    --ink:#232b30; --narr:#232b30; --muted:#6e8387; --machine:#51686c; --head:#3a4a4f;
+    --acquire:#4f7484; --win:#0b9a45; --win-bg:rgba(11,154,69,.10);
+    --danger:#c0392b; --hp:#2c7a6b; --mana:#6e8387;
+    --here:#0cca4a; --node:#dbe3e4; --node-seen:#a4b8c4; --node-stroke:#6e8387; --edge:#c8d3d5;
+  }
+  /* DARK: tuned to the same family — deep slate ground, powder/silver ink, jade win, soft red danger */
+  html[data-theme="dark"]{
+    --bg:#161c20; --bg2:#11171a; --panel:#1e262b; --panel2:#222c31;
+    --line:#2c363c; --line2:#3a474d;
+    --ink:#e9eef0; --narr:#e6ecee; --muted:#9db0b5; --machine:#a4b8c4; --head:#c8d3d5;
+    --acquire:#a4b8c4; --win:#1fd167; --win-bg:rgba(31,209,103,.10);
+    --danger:#e0686f; --hp:#7fb58e; --mana:#a4b8c4;
+    --here:#2bd46a; --node:#27333a; --node-seen:#33424a; --node-stroke:#46555d; --edge:#2c363c;
+  }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{background:radial-gradient(1200px 800px at 70% -10%,#1c2430 0%,var(--ink) 55%);
-       color:var(--parch);font-family:var(--serif);line-height:1.5;-webkit-font-smoothing:antialiased}
+  body{background:var(--bg);color:var(--ink);font-family:var(--serif);line-height:1.5;
+       -webkit-font-smoothing:antialiased;transition:background .25s,color .25s}
   .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 64px}
-  header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;
        border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:22px}
   .brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-  .brand h1{font-size:26px;font-weight:600;letter-spacing:.3px;margin:0}
-  .brand .tag{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  .brand h1{font-size:26px;font-weight:600;letter-spacing:.2px;margin:0;color:var(--head)}
+  .brand .tag{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+  .actions{display:flex;gap:8px;flex-shrink:0}
   .ghost{font-family:var(--mono);font-size:12px;color:var(--muted);background:transparent;border:1px solid var(--line);
        border-radius:999px;padding:7px 14px;cursor:pointer;letter-spacing:.06em}
-  .ghost:hover{color:var(--parch);border-color:var(--steel)}
+  .ghost:hover{color:var(--ink);border-color:var(--line2)}
   .ghost[hidden]{display:none}
 
   /* builder */
-  .builder{max-width:680px;margin:6vh auto 0}
-  .builder .lede{color:var(--muted);font-size:17px;margin:0 0 26px;max-width:52ch}
-  .builder .lede b{color:var(--parch);font-weight:600}
+  .builder{max-width:680px;margin:5vh auto 0}
+  .builder .lede{color:var(--muted);font-size:17px;margin:0 0 26px;max-width:54ch}
+  .builder .lede b{color:var(--ink);font-weight:600}
   .countrow{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:12px;
        color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:18px}
   .chip{font-family:var(--mono);font-size:14px;color:var(--muted);background:var(--panel);
        border:1px solid var(--line);border-radius:8px;width:38px;height:34px;cursor:pointer}
-  .chip.on{color:var(--ink);background:var(--gold);border-color:var(--gold);font-weight:700}
-  .agent{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:rgba(27,33,43,.5)}
-  .agent .n{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-  .agent .seal{font-family:var(--mono);font-size:11px;color:var(--gold);border:1px solid var(--line);
+  .chip.on{color:#fff;background:var(--acquire);border-color:var(--acquire);font-weight:700}
+  .agent{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:var(--panel)}
+  .agent .n{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .agent .seal{font-family:var(--mono);font-size:11px;color:var(--acquire);border:1px solid var(--line);
        border-radius:6px;padding:3px 8px;letter-spacing:.1em}
   label.f{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.14em;
        text-transform:uppercase;margin:10px 0 5px}
-  input,textarea{width:100%;background:var(--ink2);border:1px solid var(--line);border-radius:8px;
-       color:var(--parch);font-family:var(--serif);font-size:15px;padding:9px 11px;resize:vertical}
-  input:focus,textarea:focus{outline:none;border-color:var(--steel)}
+  input,textarea{width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+       color:var(--ink);font-family:var(--serif);font-size:15px;padding:9px 11px;resize:vertical}
+  input:focus,textarea:focus{outline:none;border-color:var(--line2)}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .begin{margin-top:18px;width:100%;font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;
-       color:var(--ink);background:var(--gold);border:0;border-radius:10px;padding:14px;cursor:pointer;font-weight:700}
+       color:#fff;background:var(--win);border:0;border-radius:10px;padding:14px;cursor:pointer;font-weight:700}
   .begin:hover{filter:brightness(1.06)}
-  .note{font-family:var(--mono);font-size:11px;color:var(--ember);margin-top:12px;min-height:14px}
+  .note{font-family:var(--mono);font-size:11px;color:var(--danger);margin-top:12px;min-height:14px}
 
   /* game */
   .game{display:none;grid-template-columns:1fr 360px;gap:22px;align-items:start}
   .game.live{display:grid}
   .log{min-height:60vh}
-  .line{padding:7px 0;border-bottom:1px solid rgba(43,51,63,.5);animation:rise .35s ease both}
+  .line{padding:7px 0;border-bottom:1px solid var(--line);animation:rise .35s ease both}
   @keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-  .narr{font-size:17px;color:var(--parch)}
-  .dlg{font-size:16px}
+  .narr{font-size:17px;color:var(--narr)}
+  .dlg{font-size:16px;color:var(--ink)}
   .dlg .who{font-family:var(--mono);font-size:12px;letter-spacing:.04em;margin-right:8px}
   .sys,.arg,.quest{font-family:var(--mono);font-size:13px;letter-spacing:.01em}
-  .sys{color:var(--steel)}
-  .arg{color:var(--muted)} .arg .d{color:var(--steel)}
-  .quest{display:inline-flex;align-items:center;gap:8px;color:var(--gold);border:1px solid rgba(217,164,65,.4);
-       border-radius:999px;padding:5px 12px;background:rgba(217,164,65,.07);margin:3px 0}
-  .quest.done{color:var(--sage);border-color:rgba(127,181,142,.4);background:rgba(127,181,142,.07)}
+  .sys{color:var(--machine)}
+  .arg{color:var(--muted)} .arg .d{color:var(--acquire)}
+  .quest{display:inline-flex;align-items:center;gap:8px;color:var(--acquire);border:1px solid var(--line2);
+       border-radius:999px;padding:5px 12px;background:var(--panel2);margin:3px 0}
+  .quest.done{color:var(--win);border-color:var(--win);background:var(--win-bg)}
   .quest .k{font-size:10px;letter-spacing:.16em;text-transform:uppercase;opacity:.8}
   .over{margin-top:18px;font-family:var(--mono);font-size:14px;letter-spacing:.06em;padding:14px 16px;border-radius:10px;border:1px solid var(--line)}
-  .over.won{color:var(--sage);border-color:rgba(127,181,142,.5)} .over.lost{color:var(--ember);border-color:rgba(207,106,94,.5)}
+  .over.won{color:var(--win);border-color:var(--win)} .over.lost{color:var(--danger);border-color:var(--danger)}
 
   aside{position:sticky;top:18px;display:flex;flex-direction:column;gap:18px}
-  .card{background:var(--ink2);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px}
   .card h2{margin:0 0 10px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:600}
-  svg{width:100%;height:240px;display:block}
-  .edge{stroke:#2b333f;stroke-width:1.5}
-  .node{fill:#222c38;stroke:#37424f;stroke-width:1.5;transition:fill .4s,stroke .4s,r .3s}
-  .node.seen{fill:#33414f}
-  .node.here{fill:var(--gold);stroke:#f0c97a}
-  .here-glow{fill:var(--gold);opacity:.18;animation:pulse 2.2s ease-in-out infinite}
-  @keyframes pulse{0%,100%{opacity:.10;r:10}50%{opacity:.26;r:16}}
-  .rlabel{fill:var(--muted);font-family:var(--mono);font-size:9px;letter-spacing:.04em}
-  .rlabel.here{fill:var(--gold)}
+  svg{width:100%;height:250px;display:block}
+  .edge{stroke:var(--edge);stroke-width:1.4}
+  .node{fill:var(--node);stroke:var(--node-stroke);stroke-width:1.5;transition:fill .4s,stroke .4s}
+  .node.seen{fill:var(--node-seen)}
+  .node.here{fill:var(--here);stroke:var(--here)}
+  .here-glow{fill:var(--here);opacity:.16;animation:pulse 2.2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.10;r:9}50%{opacity:.26;r:13}}
+  .rlabel{fill:var(--muted);font-family:var(--mono);font-size:8.5px;letter-spacing:.02em}
+  .rlabel.here{fill:var(--here);font-weight:600}
   .who-roster{display:flex;flex-direction:column;gap:12px}
-  .pc .name{display:flex;justify-content:space-between;align-items:baseline}
-  .pc .name b{font-weight:600;font-size:15px} .pc .name span{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em}
-  .bar{height:6px;border-radius:4px;background:#222c38;margin-top:6px;overflow:hidden}
-  .bar > i{display:block;height:100%;border-radius:4px;background:var(--ember);transition:width .5s}
-  .bar.mana{margin-top:4px} .bar.mana > i{background:var(--steel)}
+  .pc .name{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .pc .name b{font-weight:600;font-size:15px} .pc .name span{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.04em;text-align:right}
+  .bar{height:6px;border-radius:4px;background:var(--panel2);margin-top:6px;overflow:hidden;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;border-radius:4px;background:var(--hp);transition:width .5s,background .3s}
+  .bar.low > i{background:var(--danger)}
+  .bar.mana{margin-top:4px} .bar.mana > i{background:var(--mana)}
   .pc.down .name b{color:var(--muted);text-decoration:line-through}
-  .legend{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;gap:14px;margin-top:8px;letter-spacing:.04em}
+  .legend{font-family:var(--mono);font-size:10px;color:var(--muted);display:flex;gap:14px;margin-top:10px;letter-spacing:.04em}
   .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
 
   @media (max-width:860px){ .game.live{grid-template-columns:1fr} aside{position:static} .two{grid-template-columns:1fr} }
@@ -271,10 +295,13 @@ PAGE = r"""<!doctype html>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>A Watched Game</h1>
-      <span class="tag">harnessed agents · the world is a graph</span>
+      <h1>Agentic RPG</h1>
+      <span class="tag">Watch LLM agents turn this world upside down</span>
     </div>
-    <button class="ghost" id="again" hidden>Watch another</button>
+    <div class="actions">
+      <button class="ghost" id="theme">Dark mode</button>
+      <button class="ghost" id="again" hidden>Watch another</button>
+    </div>
   </header>
 
   <!-- BUILDER -->
@@ -298,10 +325,10 @@ PAGE = r"""<!doctype html>
     <aside>
       <div class="card">
         <h2>The world</h2>
-        <svg id="map" viewBox="0 0 100 64" preserveAspectRatio="xMidYMid meet"></svg>
-        <div class="legend"><span><i style="background:var(--gold)"></i>here</span>
-          <span><i style="background:#33414f"></i>seen</span>
-          <span><i style="background:#222c38"></i>unseen</span></div>
+        <svg id="map" viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend"><span><i style="background:var(--here)"></i>here</span>
+          <span><i style="background:var(--node-seen)"></i>seen</span>
+          <span><i style="background:var(--node)"></i>unseen</span></div>
       </div>
       <div class="card">
         <h2>The party</h2>
@@ -318,8 +345,26 @@ const PRESETS = [
   {name:"Wren",  class_desc:"a quick scout who fights with a spear", personality:"cautious, watchful"},
   {name:"Cael",  class_desc:"a steadfast cleric who mends wounds", personality:"gentle, stubborn in a pinch"},
 ];
-const SPEAKER_COLORS = ["#e6c07b","#9ec1e0","#c3a6d8","#a8cfa0","#e3a17c","#7fc6c6","#d7a0a0","#9fb8d0"];
-function colorFor(name){ let h=0; for(const c of (name||"")) h=(h*31+c.charCodeAt(0))>>>0; return SPEAKER_COLORS[h%SPEAKER_COLORS.length]; }
+const SPK_LIGHT = ["#0e7c86","#3d5a98","#8e44ad","#6b8e23","#b5651d","#2c7a6b","#a03e5c","#476a8c"];
+const SPK_DARK  = ["#7fc6c6","#9ec1e0","#c3a6d8","#a8cfa0","#e3a17c","#7fb58e","#d7a0a0","#9fb8d0"];
+function palette(){ return document.documentElement.getAttribute("data-theme")==="dark" ? SPK_DARK : SPK_LIGHT; }
+function colorFor(name){ const pal=palette(); let h=0; for(const c of (name||"")) h=(h*31+c.charCodeAt(0))>>>0; return pal[h%pal.length]; }
+
+// ---- theme ----
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  document.getElementById("theme").textContent = (t==="light" ? "Dark mode" : "Light mode");
+  try{ localStorage.setItem("rpg-theme", t); }catch(_){}
+}
+function recolor(){ document.querySelectorAll(".speaker-colored").forEach(el=>{ el.style.color=colorFor(el.dataset.name); }); }
+(function initTheme(){
+  let saved=null; try{ saved=localStorage.getItem("rpg-theme"); }catch(_){}
+  applyTheme(saved || "light");
+})();
+document.getElementById("theme").addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  applyTheme(cur==="light"?"dark":"light"); recolor();
+});
 
 let count = 2;
 const agentsEl = document.getElementById("agents");
@@ -357,27 +402,27 @@ function gatherParty(){
 
 // ---- map ----
 let LAYOUT=null, nodeEls={}, labelEls={}, glowEl=null, seen=new Set();
+const MX=v=>24+v*252, MY=v=>20+v*150;       // normalized [0,1] -> viewBox, with margins for labels
 fetch("/map").then(r=>r.json()).then(d=>LAYOUT=d).catch(()=>{});
 const SVG="http://www.w3.org/2000/svg";
 function drawMap(){
   const map=document.getElementById("map"); map.innerHTML=""; nodeEls={}; labelEls={}; seen=new Set();
   if(!LAYOUT) return;
-  const X=v=>6+v*88, Y=v=>8+v*48;
   for(const [a,b] of LAYOUT.edges){
     const na=LAYOUT.nodes.find(n=>n.id===a), nb=LAYOUT.nodes.find(n=>n.id===b);
     const l=document.createElementNS(SVG,"line");
-    l.setAttribute("x1",X(na.x));l.setAttribute("y1",Y(na.y));
-    l.setAttribute("x2",X(nb.x));l.setAttribute("y2",Y(nb.y));
+    l.setAttribute("x1",MX(na.x));l.setAttribute("y1",MY(na.y));
+    l.setAttribute("x2",MX(nb.x));l.setAttribute("y2",MY(nb.y));
     l.setAttribute("class","edge"); map.appendChild(l);
   }
   glowEl=document.createElementNS(SVG,"circle"); glowEl.setAttribute("class","here-glow");
-  glowEl.setAttribute("r","12"); glowEl.style.display="none"; map.appendChild(glowEl);
+  glowEl.setAttribute("r","11"); glowEl.style.display="none"; map.appendChild(glowEl);
   for(const n of LAYOUT.nodes){
     const c=document.createElementNS(SVG,"circle");
-    c.setAttribute("cx",X(n.x));c.setAttribute("cy",Y(n.y));c.setAttribute("r","4.5");
+    c.setAttribute("cx",MX(n.x));c.setAttribute("cy",MY(n.y));c.setAttribute("r","6.5");
     c.setAttribute("class","node"); map.appendChild(c); nodeEls[n.id]=c;
     const t=document.createElementNS(SVG,"text");
-    t.setAttribute("x",X(n.x));t.setAttribute("y",Y(n.y)-7);t.setAttribute("text-anchor","middle");
+    t.setAttribute("x",MX(n.x));t.setAttribute("y",MY(n.y)+15);t.setAttribute("text-anchor","middle");
     t.setAttribute("class","rlabel"); t.textContent=n.id; map.appendChild(t); labelEls[n.id]=t;
   }
 }
@@ -391,19 +436,19 @@ function setHere(room){
   nodeEls[room].classList.add("here"); nodeEls[room].classList.remove("seen");
   labelEls[room].classList.add("here");
   const n=LAYOUT.nodes.find(x=>x.id===room);
-  glowEl.style.display=""; glowEl.setAttribute("cx",6+n.x*88); glowEl.setAttribute("cy",8+n.y*48);
+  glowEl.style.display=""; glowEl.setAttribute("cx",MX(n.x)); glowEl.setAttribute("cy",MY(n.y));
 }
 
 // ---- roster ----
 function renderRoster(party){
   const r=document.getElementById("roster"); r.innerHTML="";
   party.forEach(p=>{
-    const hp=Math.max(0,Math.round(100*p.hp/Math.max(1,p.max_hp)));
+    const pct=Math.max(0,Math.round(100*p.hp/Math.max(1,p.max_hp)));
     const mp=p.max_mana>0?Math.max(0,Math.round(100*p.mana/p.max_mana)):0;
     const d=document.createElement("div"); d.className="pc"+(p.hp<=0?" down":"");
-    d.innerHTML=`<div class="name"><b style="color:${colorFor(p.name)}">${esc(p.name)}</b>
+    d.innerHTML=`<div class="name"><b class="speaker-colored" data-name="${esc(p.name)}" style="color:${colorFor(p.name)}">${esc(p.name)}</b>
         <span>${esc(p.class_name||"")} · ${p.hp}/${p.max_hp} hp</span></div>
-      <div class="bar"><i style="width:${hp}%"></i></div>
+      <div class="bar${pct<30?" low":""}"><i style="width:${pct}%"></i></div>
       ${p.max_mana>0?`<div class="bar mana"><i style="width:${mp}%"></i></div>`:""}`;
     r.appendChild(d);
   });
@@ -421,7 +466,7 @@ function handle(ev){
     case "party": renderRoster(ev.party); break;
     case "location": setHere(ev.room); break;
     case "narration": add(div("narr", esc(ev.text))); break;
-    case "dialogue": add(div("dlg", `<span class="who" style="color:${colorFor(ev.speaker)}">${esc(ev.speaker)}</span>${esc(ev.text)}`)); break;
+    case "dialogue": add(div("dlg", `<span class="who speaker-colored" data-name="${esc(ev.speaker)}" style="color:${colorFor(ev.speaker)}">${esc(ev.speaker)}</span>${esc(ev.text)}`)); break;
     case "system": add(div("sys", esc(ev.text))); break;
     case "argument": add(div("arg", `${esc(ev.speaker)} argues for <span class="d">${esc(ev.destination)}</span> — ${esc(ev.reason)}`)); break;
     case "quest": {
@@ -436,7 +481,7 @@ function handle(ev){
       window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); break; }
     case "error": {
       finished=true; if(es) es.close();
-      logEl.appendChild(div("sys", '<span style="color:var(--ember)">'+esc(ev.message)+"</span>"));
+      logEl.appendChild(div("sys", '<span style="color:var(--danger)">'+esc(ev.message)+"</span>"));
       document.getElementById("again").hidden=false; break; }
   }
 }
@@ -452,7 +497,7 @@ function begin(){
   const q=encodeURIComponent(JSON.stringify(party));
   es=new EventSource("/play?rounds=48&party="+q);
   es.onmessage=e=>{ try{ handle(JSON.parse(e.data)); }catch(_){ } };
-  es.onerror=()=>{ if(!finished){ /* let the browser retry transient drops, but never after we're done */ } };
+  es.onerror=()=>{ /* let the browser retry transient drops; we close on gameover/error so it never restarts */ };
 }
 document.getElementById("begin").addEventListener("click",begin);
 document.getElementById("again").addEventListener("click",()=>{

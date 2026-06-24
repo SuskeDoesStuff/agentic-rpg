@@ -30,7 +30,8 @@ def test_index_serves_the_page():
     r = client.get("/")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
-    assert "A Watched Game" in r.text          # the builder page, not an error
+    assert "Agentic RPG" in r.text            # the builder page, not an error
+    assert "Watch LLM agents" in r.text       # the new tagline rendered
 
 
 def test_map_returns_the_world_graph():

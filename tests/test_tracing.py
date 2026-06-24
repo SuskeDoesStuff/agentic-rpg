@@ -55,7 +55,8 @@ def _reset_tracing():
     tracing.configure(None)
 
 
-def test_disabled_is_a_strict_no_op():
+def test_disabled_is_a_strict_no_op(monkeypatch):
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)  # test the disabled path regardless of the shell
     assert tracing.enabled() is False
     assert tracing.begin_session("x", a=1) is None
     tracing.record("k", "m", "in", "out")  # no sink: silent
