@@ -20,10 +20,12 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.5"]
 ui = ["streamlit>=1.36"]
 tracing = ["langfuse>=3"]
+web = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [project.scripts]
 rpg = "rpg.cli:main"
 rpg-eval = "rpg.evals:main"
+rpg-web = "rpg.web:main"
 
 [tool.setuptools.packages.find]
 include = ["rpg*"]
