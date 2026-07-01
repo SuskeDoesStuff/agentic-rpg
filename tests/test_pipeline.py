@@ -1,4 +1,5 @@
 """The per-turn pipeline must enforce world consistency in code."""
+
 from __future__ import annotations
 
 from rpg import pipeline

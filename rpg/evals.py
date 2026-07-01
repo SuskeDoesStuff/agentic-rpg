@@ -14,6 +14,7 @@ Two layers, matching the two defenses in the engine:
 
 Run with ``rpg-eval`` or ``python -m rpg.evals``.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,19 +66,25 @@ def guardrail_eval():
             legal += 1
             if guardrail_check({"delta": d, "context": ctx, "retries": 0})["guardrail_ok"] is False:
                 false_positives += 1
-    return {"injected": injected, "detected": detected, "contained": contained,
-            "legal": legal, "false_positives": false_positives}
+    return {
+        "injected": injected,
+        "detected": detected,
+        "contained": contained,
+        "legal": legal,
+        "false_positives": false_positives,
+    }
 
 
 def narration_policer_eval():
     """Feed the narration policer crafted leaks and clean lines; it must reject the leaks and pass the clean."""
     gs = players.new_game([players.make_player("Probe", "probe", stats={"name": "p", "max_hp": 20, "attack": 8})])
     ctx = world_context(gs, "village")
-    allowed = set([ctx["room"]] + ctx["items_here"] + ctx["npcs_here"] + ctx["inventory"]
-                  + [p["name"].lower() for p in gs.party])
+    allowed = set(
+        [ctx["room"]] + ctx["items_here"] + ctx["npcs_here"] + ctx["inventory"] + [p["name"].lower() for p in gs.party]
+    )
     offscope = [n for n in world_entity_names() if n not in allowed]
-    leaks = [f"A {n} looms suddenly out of the dark." for n in offscope]                # invented entity
-    leaks += [f"You gain a {w} as the scene resolves." for w in BANNED]                  # leaked mechanic
+    leaks = [f"A {n} looms suddenly out of the dark." for n in offscope]  # invented entity
+    leaks += [f"You gain a {w} as the scene resolves." for w in BANNED]  # leaked mechanic
     clean = [f"The {ctx['room']} lies quiet around {p['name'].lower()}." for p in gs.party]
     clean += ["A cold wind moves through the empty square.", "The elder watches in silence."]
     caught = sum(1 for t in leaks if not narration_ok(t, allowed))
@@ -111,7 +118,9 @@ def endtoend_guardrail_eval():
 
     orig_struct, orig_text = config.work_struct, config.work_text
     config.work_struct = stub_struct
-    config.work_text = lambda messages, max_tokens=160, temperature=None, label="work_text": "A still moment passes in the gloom."
+    config.work_text = lambda messages, max_tokens=160, temperature=None, label="work_text": (
+        "A still moment passes in the gloom."
+    )
     blocked = total = 0
     try:
         for phantom in (False, True):
@@ -133,21 +142,42 @@ def endtoend_guardrail_eval():
 
 def robustness_report():
     """Run all deterministic checks and return a single results dict (no API key needed)."""
-    return {"guardrail": guardrail_eval(),
-            "narration_policer": narration_policer_eval(),
-            "endtoend": endtoend_guardrail_eval()}
+    return {
+        "guardrail": guardrail_eval(),
+        "narration_policer": narration_policer_eval(),
+        "endtoend": endtoend_guardrail_eval(),
+    }
 
 
 def _collect_game_text(max_rounds, cap):
     """Play one all-agent game and return up to ``cap`` generated narration/dialogue lines, with kinds."""
     from .engine import play
-    gs = players.new_game([
-        players.make_player("Borin", "a vanguard", "bold", is_agent=True,
-                            stats={"name": "vanguard", "max_hp": 36, "attack": 12, "assertiveness": 4}),
-        players.make_player("Sable", "a battle-mage", "sharp", is_agent=True,
-                            stats={"name": "mage", "max_hp": 30, "attack": 12, "max_mana": 12,
-                                   "combat_focus": "offense", "assertiveness": 3}),
-    ])
+
+    gs = players.new_game(
+        [
+            players.make_player(
+                "Borin",
+                "a vanguard",
+                "bold",
+                is_agent=True,
+                stats={"name": "vanguard", "max_hp": 36, "attack": 12, "assertiveness": 4},
+            ),
+            players.make_player(
+                "Sable",
+                "a battle-mage",
+                "sharp",
+                is_agent=True,
+                stats={
+                    "name": "mage",
+                    "max_hp": 30,
+                    "attack": 12,
+                    "max_mana": 12,
+                    "combat_focus": "offense",
+                    "assertiveness": 3,
+                },
+            ),
+        ]
+    )
     lines = []
     gen = play(gs, max_rounds=max_rounds)
     to_send = None
@@ -175,15 +205,17 @@ def judge_eval(max_rounds=12, cap=24):
 
 def _fmt(report):
     g, n, e = report["guardrail"], report["narration_policer"], report["endtoend"]
-    return "\n".join([
-        "== robustness (deterministic, no key) ==",
-        f"guardrail: detected {g['detected']}/{g['injected']} fabrications, "
-        f"contained {g['contained']}/{g['injected']}, "
-        f"false positives {g['false_positives']}/{g['legal']} legal outcomes",
-        f"narration policer: caught {n['leaks_caught']}/{n['leaks']} leaks, "
-        f"passed {n['clean_passed']}/{n['clean']} clean lines",
-        f"end-to-end cheating model: blocked {e['blocked']}/{e['turns']} turns",
-    ])
+    return "\n".join(
+        [
+            "== robustness (deterministic, no key) ==",
+            f"guardrail: detected {g['detected']}/{g['injected']} fabrications, "
+            f"contained {g['contained']}/{g['injected']}, "
+            f"false positives {g['false_positives']}/{g['legal']} legal outcomes",
+            f"narration policer: caught {n['leaks_caught']}/{n['leaks']} leaks, "
+            f"passed {n['clean_passed']}/{n['clean']} clean lines",
+            f"end-to-end cheating model: blocked {e['blocked']}/{e['turns']} turns",
+        ]
+    )
 
 
 def main():
@@ -194,8 +226,10 @@ def main():
     if "skipped" in jr:
         print(f"skipped: {jr['skipped']}")
     else:
-        print(f"graded {jr['n']} lines | mean score {jr['mean_score']}/10 | "
-              f"clean rate {jr['clean_rate']} | violations {jr['violations'] or 'none'}")
+        print(
+            f"graded {jr['n']} lines | mean score {jr['mean_score']}/10 | "
+            f"clean rate {jr['clean_rate']} | violations {jr['violations'] or 'none'}"
+        )
 
 
 if __name__ == "__main__":

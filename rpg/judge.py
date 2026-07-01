@@ -7,6 +7,7 @@ the deterministic guardrail cannot see. Grading is advisory; it never gates play
 it only scores output for evaluation. Tests stub ``judge_struct``, so the wiring
 runs with no API key.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,5 +56,4 @@ def summarize(verdicts):
         for name in v.get("violations", []):
             tally[name] = tally.get(name, 0) + 1
     clean = sum(1 for v in verdicts if not v.get("violations"))
-    return {"n": n, "mean_score": round(sum(scores) / n, 2),
-            "clean_rate": round(clean / n, 3), "violations": tally}
+    return {"n": n, "mean_score": round(sum(scores) / n, 2), "clean_rate": round(clean / n, 3), "violations": tally}

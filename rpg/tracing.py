@@ -15,13 +15,14 @@ path with no SDK and no keys.
 Enable by setting ``LANGFUSE_PUBLIC_KEY`` / ``LANGFUSE_SECRET_KEY`` (and optionally
 ``LANGFUSE_HOST``) in the environment, or by calling :func:`configure` with a sink.
 """
+
 from __future__ import annotations
 
 import os
 from contextvars import ContextVar
 
-_sink = None                                          # injected sink; when set, tracing is on
-_lazy = None                                          # cached real Langfuse-backed sink
+_sink = None  # injected sink; when set, tracing is on
+_lazy = None  # cached real Langfuse-backed sink
 _current: ContextVar = ContextVar("rpg_trace_session", default=None)
 
 
@@ -43,6 +44,7 @@ def _get_sink():
     global _lazy
     if _lazy is None:
         from langfuse import Langfuse  # lazy: the package is needed only when tracing is enabled
+
         _lazy = _LangfuseSink(Langfuse())
     return _lazy
 
@@ -97,8 +99,9 @@ class _LangfuseSession:
         self._root = root
 
     def record(self, name, model, inp, output, metadata):
-        self._root.start_observation(name=name, as_type="generation", input=inp,
-                                     output=output, model=model, metadata=metadata).end()
+        self._root.start_observation(
+            name=name, as_type="generation", input=inp, output=output, model=model, metadata=metadata
+        ).end()
 
     def end(self):
         self._root.end()
@@ -115,8 +118,9 @@ class _LangfuseSink:
         return _LangfuseSession(root)
 
     def record(self, name, model, inp, output, metadata):  # a call made outside any session
-        self._client.start_observation(name=name, as_type="generation", input=inp,
-                                       output=output, model=model, metadata=metadata).end()
+        self._client.start_observation(
+            name=name, as_type="generation", input=inp, output=output, model=model, metadata=metadata
+        ).end()
 
     def flush(self):
         self._client.flush()

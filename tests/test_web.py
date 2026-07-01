@@ -5,6 +5,7 @@ key. They pin the page, the world-graph endpoint, a full streamed game (which mu
 reach a terminal gameover and report at least one room), and the honest no-key
 error path.
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ def _events(body: str):
     out = []
     for line in body.splitlines():
         if line.startswith("data: "):
-            out.append(json.loads(line[len("data: "):]))
+            out.append(json.loads(line[len("data: ") :]))
     return out
 
 
@@ -34,8 +35,8 @@ def test_index_serves_the_page():
     r = client.get("/")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
-    assert "Agentic RPG" in r.text            # the builder page, not an error
-    assert "Watch LLM agents" in r.text       # the new tagline rendered
+    assert "Agentic RPG" in r.text  # the builder page, not an error
+    assert "Watch LLM agents" in r.text  # the new tagline rendered
 
 
 def test_map_returns_the_world_graph():
@@ -43,26 +44,30 @@ def test_map_returns_the_world_graph():
     assert r.status_code == 200
     data = r.json()
     ids = {n["id"] for n in data["nodes"]}
-    assert len(data["nodes"]) == len(WORLD["rooms"])   # every room is a node
-    assert data["start"] in ids                        # the start room is in the graph
-    assert data["edges"]                               # exits became drawable edges
-    for n in data["nodes"]:                            # coordinates normalized for the page
+    assert len(data["nodes"]) == len(WORLD["rooms"])  # every room is a node
+    assert data["start"] in ids  # the start room is in the graph
+    assert data["edges"]  # exits became drawable edges
+    for n in data["nodes"]:  # coordinates normalized for the page
         assert 0.0 <= n["x"] <= 1.0 and 0.0 <= n["y"] <= 1.0
 
 
 def test_play_streams_a_full_game(monkeypatch):
-    monkeypatch.setattr(config, "has_key", lambda: True)   # pretend a key is present; stubs do the talking
-    party = json.dumps([{"name": "Borin", "class_desc": "a vanguard", "personality": "bold"},
-                        {"name": "Sable", "class_desc": "a battle-mage", "personality": "sharp"}])
+    monkeypatch.setattr(config, "has_key", lambda: True)  # pretend a key is present; stubs do the talking
+    party = json.dumps(
+        [
+            {"name": "Borin", "class_desc": "a vanguard", "personality": "bold"},
+            {"name": "Sable", "class_desc": "a battle-mage", "personality": "sharp"},
+        ]
+    )
     r = client.get("/play", params={"party": party, "rounds": 2})
     assert r.status_code == 200
     assert "text/event-stream" in r.headers["content-type"]
     evs = _events(r.text)
     kinds = [e["type"] for e in evs]
-    assert kinds[0] == "start"                          # opens with the party and start room
-    assert "location" in kinds                          # at least the starting room is reported
-    assert "party" in kinds                             # roster state is streamed
-    assert kinds[-1] == "gameover"                      # and it terminates cleanly
+    assert kinds[0] == "start"  # opens with the party and start room
+    assert "location" in kinds  # at least the starting room is reported
+    assert "party" in kinds  # roster state is streamed
+    assert kinds[-1] == "gameover"  # and it terminates cleanly
     start = next(e for e in evs if e["type"] == "start")
     assert len(start["party"]) == 2
 
@@ -72,7 +77,7 @@ def test_play_without_a_key_reports_honestly(monkeypatch):
     party = json.dumps([{"name": "Borin", "class_desc": "a vanguard", "personality": "bold"}])
     r = client.get("/play", params={"party": party, "rounds": 2})
     evs = _events(r.text)
-    assert [e["type"] for e in evs] == ["error"]        # one honest error, no faked game
+    assert [e["type"] for e in evs] == ["error"]  # one honest error, no faked game
     assert "API key" in evs[0]["message"]
 
 
@@ -88,6 +93,6 @@ def test_play_surfaces_a_mid_game_failure(monkeypatch):
     r = client.get("/play", params={"party": party, "rounds": 2})
     evs = _events(r.text)
     kinds = [e["type"] for e in evs]
-    assert kinds[0] == "start"                          # party built, game opened
-    assert kinds[-1] == "error"                         # then the failure is shown, not swallowed
+    assert kinds[0] == "start"  # party built, game opened
+    assert kinds[-1] == "error"  # then the failure is shown, not swallowed
     assert "model exploded" in evs[-1]["message"]

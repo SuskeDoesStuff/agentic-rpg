@@ -4,6 +4,7 @@ It iterates the ``play`` generator, rendering display events and answering input
 requests from stdin. The engine holds all logic; this file is pure presentation,
 which is exactly what a web UI replaces without touching the core.
 """
+
 from __future__ import annotations
 
 from . import config, events
@@ -49,6 +50,7 @@ def drive(gs, get_action=input, get_battle=None):
 
 def setup_wizard():
     """Build a party from typed character descriptions and return a fresh GameState."""
+
     def ask_int(prompt, lo, hi):
         while True:
             try:
@@ -77,8 +79,13 @@ def setup_wizard():
         print("  rolling stats...")
         party.append(make_player(name, cls, per, is_agent=False))
     gs = new_game(party)
-    print("\nParty:", [(p["name"], p["class_name"], p["max_hp"], p["attack"],
-                        "agent" if p["is_agent"] else "human") for p in gs.party])
+    print(
+        "\nParty:",
+        [
+            (p["name"], p["class_name"], p["max_hp"], p["attack"], "agent" if p["is_agent"] else "human")
+            for p in gs.party
+        ],
+    )
     for p in gs.party:
         print("  " + disposition_line(p))
     return gs

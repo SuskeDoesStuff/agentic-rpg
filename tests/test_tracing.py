@@ -7,6 +7,7 @@ shaped like the real Langfuse v3+/v4 API (``start_observation`` with an ``as_typ
 child ``start_observation``, ``end``, ``flush``), so the SDK mapping is verified with
 no real SDK and no keys.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -24,8 +25,9 @@ class FakeSession:
         self.sink, self.name, self.metadata, self.ended = sink, name, metadata, False
 
     def record(self, name, model, inp, output, metadata):
-        self.sink.records.append({"trace": self.name, "name": name, "model": model,
-                                  "input": inp, "output": output, "meta": metadata})
+        self.sink.records.append(
+            {"trace": self.name, "name": name, "model": model, "input": inp, "output": output, "meta": metadata}
+        )
 
     def end(self):
         self.ended = True
@@ -41,8 +43,9 @@ class FakeSink:
         return s
 
     def record(self, name, model, inp, output, metadata):  # a call made outside any session
-        self.records.append({"trace": None, "name": name, "model": model,
-                             "input": inp, "output": output, "meta": metadata})
+        self.records.append(
+            {"trace": None, "name": name, "model": model, "input": inp, "output": output, "meta": metadata}
+        )
 
     def flush(self):
         self.flushed += 1
@@ -96,10 +99,10 @@ def test_backend_errors_never_propagate():
             raise RuntimeError("down")
 
     tracing.configure(Boom())
-    token = tracing.begin_session("g")     # swallowed -> None
+    token = tracing.begin_session("g")  # swallowed -> None
     assert token is None
-    tracing.record("k", "m", "i", "o")     # swallowed (standalone path raises, caught)
-    tracing.end_session("not-a-token")     # swallowed
+    tracing.record("k", "m", "i", "o")  # swallowed (standalone path raises, caught)
+    tracing.end_session("not-a-token")  # swallowed
 
 
 def test_real_chokepoints_emit_generations(monkeypatch):
@@ -130,8 +133,9 @@ def test_real_chokepoints_emit_generations(monkeypatch):
 def test_play_opens_and_closes_a_session():
     sink = FakeSink()
     tracing.configure(sink)
-    gs = players.new_game([players.make_player("A", "scout", is_agent=True,
-                                               stats={"name": "s", "max_hp": 20, "attack": 8})])
+    gs = players.new_game(
+        [players.make_player("A", "scout", is_agent=True, stats={"name": "s", "max_hp": 20, "attack": 8})]
+    )
     gs.banter = False
     gen = engine.play(gs, max_rounds=1)
     to_send = None
@@ -148,6 +152,7 @@ def test_play_opens_and_closes_a_session():
 
 
 # --- adapter: confirm the real Langfuse v3+/v4 surface is spoken correctly ---
+
 
 class _V4Gen:
     def __init__(self, log, kw):

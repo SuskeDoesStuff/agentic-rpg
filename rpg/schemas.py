@@ -4,6 +4,7 @@ Using ``with_structured_output`` against these means parsing is types, not regex
 and a malformed model reply fails loudly at the boundary rather than corrupting
 game state downstream.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field

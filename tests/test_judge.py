@@ -5,6 +5,7 @@ guardrail or the narration policer fails CI. The judge wiring is exercised throu
 the stubbed ``judge_struct`` (no key), and the live judge pass is confirmed to skip
 cleanly when none is set.
 """
+
 from __future__ import annotations
 
 from rpg import config, evals, judge
@@ -13,9 +14,9 @@ from rpg import config, evals, judge
 def test_guardrail_detects_and_contains_every_fabrication():
     g = evals.guardrail_eval()
     assert g["injected"] > 0
-    assert g["detected"] == g["injected"]    # every illegal move/grant is caught on the first pass
-    assert g["contained"] == g["injected"]   # and reduced to a safe no-op once retries run out
-    assert g["false_positives"] == 0         # legal outcomes are never blocked
+    assert g["detected"] == g["injected"]  # every illegal move/grant is caught on the first pass
+    assert g["contained"] == g["injected"]  # and reduced to a safe no-op once retries run out
+    assert g["false_positives"] == 0  # legal outcomes are never blocked
 
 
 def test_narration_policer_catches_leaks_and_passes_clean_lines():
@@ -66,6 +67,6 @@ def test_judge_eval_skips_without_a_key(monkeypatch):
 
 
 def test_judge_eval_runs_when_a_key_is_present(monkeypatch):
-    monkeypatch.setattr(config, "has_key", lambda: True)   # the model calls are stubbed by conftest
+    monkeypatch.setattr(config, "has_key", lambda: True)  # the model calls are stubbed by conftest
     out = evals.judge_eval(max_rounds=2, cap=6)
     assert "skipped" not in out and "n" in out and out["clean_rate"] is not None

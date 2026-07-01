@@ -5,6 +5,7 @@ no model and no API key. ``stub_models`` (autouse) replaces them with determinis
 functions, so every test below is pure, fast, and reproducible. ``run_gen`` drives a
 generator to completion when no human input is expected.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,8 +54,15 @@ def _work_struct(schema, messages, temperature=None):
     if name == "Resolution":
         return _resolution(usr)
     if name == "ClassStats":
-        return {"name": "fighter", "max_hp": 22, "attack": 8, "max_mana": 0,
-                "combat_focus": "balanced", "caution": "steady", "assertiveness": 3}
+        return {
+            "name": "fighter",
+            "max_hp": 22,
+            "attack": 8,
+            "max_mana": 0,
+            "combat_focus": "balanced",
+            "caution": "steady",
+            "assertiveness": 3,
+        }
     if name == "AgentTurn":
         return {"say": "", "action": "look"}
     if name == "CombatMove":
@@ -80,10 +88,13 @@ def stub_models(monkeypatch):
 @pytest.fixture
 def game():
     """A default solo-agent game state."""
-    return players.new_game([
-        players.make_player("Borin", "a sellsword", "gruff", is_agent=True,
-                            stats={"name": "sellsword", "max_hp": 30, "attack": 8})
-    ])
+    return players.new_game(
+        [
+            players.make_player(
+                "Borin", "a sellsword", "gruff", is_agent=True, stats={"name": "sellsword", "max_hp": 30, "attack": 8}
+            )
+        ]
+    )
 
 
 def run_gen(gen):

@@ -8,6 +8,7 @@ declarative gates, guardrail rejects fabricated outcomes, and narrate is policed
 it can only name entities actually present. The active GameState rides through the
 graph under the ``gs`` key so nodes mutate the real session, not a global.
 """
+
 from __future__ import annotations
 
 import json
@@ -73,8 +74,10 @@ def validate_action(state):
 
 
 def resolve_outcome(state):
-    sysm = ("You are the game engine. Given a legal action and context, produce the concrete outcome. "
-            "Only move to a listed exit; only grant an item listed as present; invent nothing.")
+    sysm = (
+        "You are the game engine. Given a legal action and context, produce the concrete outcome. "
+        "Only move to a listed exit; only grant an item listed as present; invent nothing."
+    )
     usr = json.dumps({"action": state["intent"], "context": state["context"]})
     d = config.work_struct(Resolution, [("system", sysm), ("human", usr)])
     return {"delta": d, "retries": state.get("retries", 0)}
@@ -127,17 +130,23 @@ def narrate(state):
     ctx = world_context(gs, gs.location)
     prev = state.get("context", {})  # full pre-move context the pipeline already captured
     actor = state.get("actor", "the party")
-    allowed = set([ctx["room"], prev.get("room", ctx["room"])]
-                  + ctx["items_here"] + ctx["npcs_here"] + ctx["inventory"]
-                  + prev.get("items_here", []) + prev.get("npcs_here", [])
-                  + [p["name"].lower() for p in gs.party])
-    sysm = ("You are a concise fantasy narrator. 1-2 sentences, third person. Describe the party's CURRENT "
-            f"room (in 'now') and what {actor} just did (in 'happened'); name the character. You may also "
-            "reference 'before' (the room they just left and what was in it). Never invent any other place, "
-            "exit, item, or character, never mention quests, scores, or mechanics, and never name anything "
-            "not in 'now', 'before', or 'happened'.")
-    usr = json.dumps({"actor": actor, "happened": state["delta"],
-                      "now": narr_view(ctx), "before": narr_view(prev)})
+    allowed = set(
+        [ctx["room"], prev.get("room", ctx["room"])]
+        + ctx["items_here"]
+        + ctx["npcs_here"]
+        + ctx["inventory"]
+        + prev.get("items_here", [])
+        + prev.get("npcs_here", [])
+        + [p["name"].lower() for p in gs.party]
+    )
+    sysm = (
+        "You are a concise fantasy narrator. 1-2 sentences, third person. Describe the party's CURRENT "
+        f"room (in 'now') and what {actor} just did (in 'happened'); name the character. You may also "
+        "reference 'before' (the room they just left and what was in it). Never invent any other place, "
+        "exit, item, or character, never mention quests, scores, or mechanics, and never name anything "
+        "not in 'now', 'before', or 'happened'."
+    )
+    usr = json.dumps({"actor": actor, "happened": state["delta"], "now": narr_view(ctx), "before": narr_view(prev)})
     text = None
     for _ in range(3):  # regenerate if it names an out-of-scope entity or leaks mechanics
         cand = config.work_text([("system", sysm), ("human", usr)], max_tokens=90, temperature=0.8, label="narrate")
@@ -150,8 +159,10 @@ def narrate(state):
 
 
 def narrate_refusal(state):
-    sysm = ("You are a fantasy narrator. One sentence, third person: tell the actor they can't do that, using "
-            "the given reason. Stay in character; invent nothing.")
+    sysm = (
+        "You are a fantasy narrator. One sentence, third person: tell the actor they can't do that, using "
+        "the given reason. Stay in character; invent nothing."
+    )
     usr = json.dumps({"actor": state.get("actor", "the party"), "reason": state.get("reason", "")})
     text = config.work_text([("system", sysm), ("human", usr)], max_tokens=50, label="narrate_refusal")
     return {"narration": text, "post_context": world_context(state["gs"], state["gs"].location)}
@@ -182,19 +193,27 @@ def _route_guardrail(state):
 
 def _build_app():
     g = StateGraph(TurnState)
-    for n, fn in [("parse_intent", parse_intent), ("retrieve_context", retrieve_context),
-                  ("validate_action", validate_action), ("resolve_outcome", resolve_outcome),
-                  ("guardrail_check", guardrail_check), ("narrate", narrate),
-                  ("narrate_refusal", narrate_refusal), ("update_state", update_state)]:
+    for n, fn in [
+        ("parse_intent", parse_intent),
+        ("retrieve_context", retrieve_context),
+        ("validate_action", validate_action),
+        ("resolve_outcome", resolve_outcome),
+        ("guardrail_check", guardrail_check),
+        ("narrate", narrate),
+        ("narrate_refusal", narrate_refusal),
+        ("update_state", update_state),
+    ]:
         g.add_node(n, fn)
     g.set_entry_point("parse_intent")
     g.add_edge("parse_intent", "retrieve_context")
     g.add_edge("retrieve_context", "validate_action")
-    g.add_conditional_edges("validate_action", _route_validity,
-                            {"resolve_outcome": "resolve_outcome", "narrate_refusal": "narrate_refusal"})
+    g.add_conditional_edges(
+        "validate_action", _route_validity, {"resolve_outcome": "resolve_outcome", "narrate_refusal": "narrate_refusal"}
+    )
     g.add_edge("resolve_outcome", "guardrail_check")
-    g.add_conditional_edges("guardrail_check", _route_guardrail,
-                            {"update_state": "update_state", "resolve_outcome": "resolve_outcome"})
+    g.add_conditional_edges(
+        "guardrail_check", _route_guardrail, {"update_state": "update_state", "resolve_outcome": "resolve_outcome"}
+    )
     g.add_edge("update_state", "narrate")
     g.add_edge("narrate", END)
     g.add_edge("narrate_refusal", END)

@@ -5,6 +5,7 @@ by name to the addressed NPC or companion, or to the whole party (silent-skip)
 when unaddressed. NPC replies are grounded only in facts derived from world state.
 The leaf functions return text; the routing generators yield Dialogue events.
 """
+
 from __future__ import annotations
 
 import json
@@ -37,12 +38,18 @@ def agent_say(gs, player, situation, allow_silence=True):
     here = [p["name"] for p in gs.alive() if p is not player] + [n.capitalize() for n in npcs_at(gs.location)]
     present = ", ".join(here) or "no one else"
     rule = "If you have nothing worth adding, reply with an empty line." if allow_silence else ""
-    sysm = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}. Present with you "
-            f"right now: {present}. React with ONE short in-character line. Address only someone present by name; if "
-            "you are alone, speak your own resolve and address no one. Never address an absent ally, a 'team' or "
-            f"'party' that is not here, or an NPC who is not in this room. {rule} No quotes.")
+    sysm = (
+        f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}. Present with you "
+        f"right now: {present}. React with ONE short in-character line. Address only someone present by name; if "
+        "you are alone, speak your own resolve and address no one. Never address an absent ally, a 'team' or "
+        f"'party' that is not here, or an NPC who is not in this room. {rule} No quotes."
+    )
     usr = json.dumps({"situation": situation, "recent": gs.recent_dialogue()})
-    return config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9, label="agent_say").strip().strip('"')
+    return (
+        config.work_text([("system", sysm), ("human", usr)], max_tokens=40, temperature=0.9, label="agent_say")
+        .strip()
+        .strip('"')
+    )
 
 
 def npc_reply(gs, npc, message, speaker, leads=None):
@@ -51,12 +58,14 @@ def npc_reply(gs, npc, message, speaker, leads=None):
     role = info.get("role", f"a {npc}")
     voice = info.get("voice", "someone who knows little beyond this room")
     leads = leads or []
-    sysm = (f"You are {npc}, {role}. You are {voice}. A traveler addresses you; reply in character in 1-2 "
-            "sentences. If 'leads' is non-empty, convey what they mean in your own voice and let the traveler draw "
-            "their own conclusions; never recite them as a bare list and never name a compass, an objective, a "
-            "quest, or any game term. If 'leads' is empty you have nothing new to offer, so greet them or say so "
-            "briefly in character. Invent no places, items, people, or lore beyond 'leads'. 'recent' is only the "
-            "latest talk; do not repeat yourself word for word.")
+    sysm = (
+        f"You are {npc}, {role}. You are {voice}. A traveler addresses you; reply in character in 1-2 "
+        "sentences. If 'leads' is non-empty, convey what they mean in your own voice and let the traveler draw "
+        "their own conclusions; never recite them as a bare list and never name a compass, an objective, a "
+        "quest, or any game term. If 'leads' is empty you have nothing new to offer, so greet them or say so "
+        "briefly in character. Invent no places, items, people, or lore beyond 'leads'. 'recent' is only the "
+        "latest talk; do not repeat yourself word for word."
+    )
     usr = json.dumps({"traveler": speaker, "said": message, "leads": leads, "recent": gs.recent_dialogue(6)})
     return config.work_text([("system", sysm), ("human", usr)], max_tokens=80, temperature=0.7, label="npc_reply")
 

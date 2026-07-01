@@ -5,6 +5,7 @@ web UI, or a scripted test all drive the identical core. The party moves as one
 body: with a human present the human leads and agents follow; with no human the
 agents negotiate each move. Movement is one shared step per round.
 """
+
 from __future__ import annotations
 
 import json
@@ -62,7 +63,7 @@ def arrive(gs, prev, mover=None):
         if outcome == "fled":
             return "ok"  # withdrew but may return; enemy rooms hold no NPCs to greet
     yield from announce_completions(gs)  # a kill here may finish a quest
-    yield from greet_locals(gs)          # meet anyone new in this room
+    yield from greet_locals(gs)  # meet anyone new in this room
     return "ok"
 
 
@@ -145,20 +146,25 @@ def party_navigation_phase(gs):
 def narrate_opening(gs):
     """Two or three sentences setting the opening scene from world facts only."""
     party = ", ".join(f"{p['name']} ({p['class_name']})" for p in gs.party)
-    sysm = ("You are a fantasy narrator. In 2-3 sentences set the opening scene: introduce the party and describe "
-            "their starting room and the paths and people in it. Use only what is in the context, invent nothing.")
-    text = config.work_text([("system", sysm),
-                             ("human", json.dumps({"party": party, "room": world_context(gs, gs.location)}))],
-                            max_tokens=120, temperature=0.85, label="narrate_opening")
+    sysm = (
+        "You are a fantasy narrator. In 2-3 sentences set the opening scene: introduce the party and describe "
+        "their starting room and the paths and people in it. Use only what is in the context, invent nothing."
+    )
+    text = config.work_text(
+        [("system", sysm), ("human", json.dumps({"party": party, "room": world_context(gs, gs.location)}))],
+        max_tokens=120,
+        temperature=0.85,
+        label="narrate_opening",
+    )
     gs.remember(f"(opening) {text}")
     return text
 
 
 def play(gs, max_rounds=48):
     """Drive a whole playthrough as a stream of events, under one tracing session. This is the engine."""
-    token = tracing.begin_session("rpg-game",
-                                  party=[p["name"] for p in gs.party],
-                                  models={"work": config.WORK_MODEL, "judge": config.JUDGE_MODEL})
+    token = tracing.begin_session(
+        "rpg-game", party=[p["name"] for p in gs.party], models={"work": config.WORK_MODEL, "judge": config.JUDGE_MODEL}
+    )
     try:
         yield from _play(gs, max_rounds)
     finally:

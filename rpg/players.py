@@ -7,6 +7,7 @@ ranges, so nothing the model returns can break balance or invariants. Pass
 explicit ``stats=`` to skip the call, which is how the demo and tests stay
 deterministic.
 """
+
 from __future__ import annotations
 
 from . import config
@@ -37,8 +38,15 @@ def gen_class_stats(desc, personality=""):
     try:
         return config.work_struct(ClassStats, [("system", sysm), ("human", human)])
     except Exception:
-        return {"name": desc[:20], "max_hp": 22, "attack": 7, "max_mana": 0,
-                "combat_focus": "balanced", "caution": "steady", "assertiveness": 3}
+        return {
+            "name": desc[:20],
+            "max_hp": 22,
+            "attack": 7,
+            "max_mana": 0,
+            "combat_focus": "balanced",
+            "caution": "steady",
+            "assertiveness": 3,
+        }
 
 
 def make_player(name, class_desc, personality="", is_agent=False, stats=None):
@@ -46,19 +54,29 @@ def make_player(name, class_desc, personality="", is_agent=False, stats=None):
     s = stats or gen_class_stats(class_desc, personality)
     hp = clamp(s.get("max_hp"), HP_MIN, HP_MAX, 22)
     mana = clamp(s.get("max_mana", 0), 0, MANA_MAX, 0)
-    return {"name": name, "class_desc": class_desc, "class_name": s.get("name", class_desc),
-            "personality": personality, "is_agent": is_agent,
-            "attack": clamp(s.get("attack"), ATK_MIN, ATK_MAX, 7), "hp": hp, "max_hp": hp,
-            "mana": mana, "max_mana": mana,
-            "combat_focus": s.get("combat_focus", "balanced"),
-            "caution": s.get("caution", "steady"),
-            "assertiveness": clamp(s.get("assertiveness", 3), 1, 5, 3)}
+    return {
+        "name": name,
+        "class_desc": class_desc,
+        "class_name": s.get("name", class_desc),
+        "personality": personality,
+        "is_agent": is_agent,
+        "attack": clamp(s.get("attack"), ATK_MIN, ATK_MAX, 7),
+        "hp": hp,
+        "max_hp": hp,
+        "mana": mana,
+        "max_mana": mana,
+        "combat_focus": s.get("combat_focus", "balanced"),
+        "caution": s.get("caution", "steady"),
+        "assertiveness": clamp(s.get("assertiveness", 3), 1, 5, 3),
+    }
 
 
 def disposition_line(p):
     """A short, readable summary of how a character will fight and argue."""
-    return (f"{p['name']} reads as a {p['caution']} {p['combat_focus']} fighter, "
-            f"{p['max_mana']} mana, assertiveness {p['assertiveness']}/5 in council.")
+    return (
+        f"{p['name']} reads as a {p['caution']} {p['combat_focus']} fighter, "
+        f"{p['max_mana']} mana, assertiveness {p['assertiveness']}/5 in council."
+    )
 
 
 def new_game(party, start="village"):

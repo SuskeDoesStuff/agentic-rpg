@@ -6,6 +6,7 @@ can hold an independent game per user just by keeping its own instance. The worl
 graph, gates, spells, and model config are immutable constants and live in their
 own modules.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -22,13 +23,13 @@ class GameState:
     defeated: set = field(default_factory=set)
     visited: set = field(default_factory=set)
     facts: set = field(default_factory=set)  # objective locations the party has learned, by name
-    met: set = field(default_factory=set)    # rooms whose NPCs the party has already greeted
+    met: set = field(default_factory=set)  # rooms whose NPCs the party has already greeted
     flee_counts: dict = field(default_factory=dict)
 
     party: list = field(default_factory=list)
-    memory: list = field(default_factory=list)      # events: narration, combat, quest markers, votes
-    dialogue: list = field(default_factory=list)     # spoken lines only, in their own lane events cannot evict
-    _seq: int = 0                                     # monotonic tick so the two lanes can be merged in true order
+    memory: list = field(default_factory=list)  # events: narration, combat, quest markers, votes
+    dialogue: list = field(default_factory=list)  # spoken lines only, in their own lane events cannot evict
+    _seq: int = 0  # monotonic tick so the two lanes can be merged in true order
     turn: int = 0
     round_moved: bool = False
 

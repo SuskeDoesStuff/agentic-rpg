@@ -1,4 +1,5 @@
 """World construction, graph helpers, and player derivation."""
+
 from __future__ import annotations
 
 import networkx as nx
@@ -37,9 +38,21 @@ def test_items_in_room_hides_carried(game):
 
 
 def test_player_derives_disposition_and_mana():
-    p = players.make_player("Vesna", "a court wizard", "calm and cautious", is_agent=True,
-                            stats={"name": "wizard", "max_hp": 16, "attack": 6, "max_mana": 12,
-                                   "combat_focus": "offense", "caution": "cautious", "assertiveness": 2})
+    p = players.make_player(
+        "Vesna",
+        "a court wizard",
+        "calm and cautious",
+        is_agent=True,
+        stats={
+            "name": "wizard",
+            "max_hp": 16,
+            "attack": 6,
+            "max_mana": 12,
+            "combat_focus": "offense",
+            "caution": "cautious",
+            "assertiveness": 2,
+        },
+    )
     assert p["combat_focus"] == "offense" and p["caution"] == "cautious"
     assert p["max_mana"] == 12 and 1 <= p["assertiveness"] <= 5
 
@@ -50,7 +63,9 @@ def test_stats_clamped_to_safe_range():
 
 
 def test_new_game_tops_up_and_validates():
-    gs = players.new_game([players.make_player("A", "x", stats={"name": "x", "max_hp": 20, "attack": 8, "max_mana": 6})])
+    gs = players.new_game(
+        [players.make_player("A", "x", stats={"name": "x", "max_hp": 20, "attack": 8, "max_mana": 6})]
+    )
     assert gs.party[0]["hp"] == 20 and gs.party[0]["mana"] == 6
     assert gs.location == "village" and "village" in gs.visited
     with pytest.raises(AssertionError):

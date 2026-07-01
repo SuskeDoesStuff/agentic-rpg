@@ -1,4 +1,5 @@
 """The engine: movement authority, greeting on arrival, completion, and a full run."""
+
 from __future__ import annotations
 
 from rpg import engine, players, quests
@@ -31,7 +32,7 @@ def _events(gen):
 
 def test_movement_authority_human_leads():
     gs = players.new_game([_human("Suske"), _agent("Exys")])
-    assert engine.movement_allowed(gs, gs.party[0]) is True   # human may move
+    assert engine.movement_allowed(gs, gs.party[0]) is True  # human may move
     assert engine.movement_allowed(gs, gs.party[1]) is False  # agent follows the human
     gs.round_moved = True
     assert engine.movement_allowed(gs, gs.party[0]) is False  # one move per round
@@ -39,7 +40,7 @@ def test_movement_authority_human_leads():
 
 def test_movement_authority_all_agents():
     gs = players.new_game([_agent("A"), _agent("B")])
-    assert engine.movement_allowed(gs, gs.party[0]) is True   # first agent leads
+    assert engine.movement_allowed(gs, gs.party[0]) is True  # first agent leads
     gs.round_moved = True
     assert engine.movement_allowed(gs, gs.party[1]) is False  # the rest hold
 
@@ -66,25 +67,42 @@ def test_greeting_the_start_acquires_its_quests():
 
 # A full traversal: meet every giver as new rooms are found, fetch four items, kill three foes.
 DEMO_ACTIONS = [
-    "go tavern", "go village",                  # meet the barkeep -> the grove-bear bounty
-    "go market", "take torch", "take potion", "go village",
-    "go forest", "go grove", "go forest",       # the grove bear
-    "go cave", "take key", "go forest", "go village",
-    "go bridge", "go ruins", "take amulet",     # the amulet (the locked shrine needs the key)
-    "go chapel", "take ward", "go ruins",        # meet the priest -> the sanctum rite, take the ward
-    "go crypt", "go ruins",                      # the guardian (the dark crypt needs the torch)
-    "go chapel", "go sanctum",                   # the wraith (the sealed sanctum needs the ward)
+    "go tavern",
+    "go village",  # meet the barkeep -> the grove-bear bounty
+    "go market",
+    "take torch",
+    "take potion",
+    "go village",
+    "go forest",
+    "go grove",
+    "go forest",  # the grove bear
+    "go cave",
+    "take key",
+    "go forest",
+    "go village",
+    "go bridge",
+    "go ruins",
+    "take amulet",  # the amulet (the locked shrine needs the key)
+    "go chapel",
+    "take ward",
+    "go ruins",  # meet the priest -> the sanctum rite, take the ward
+    "go crypt",
+    "go ruins",  # the guardian (the dark crypt needs the torch)
+    "go chapel",
+    "go sanctum",  # the wraith (the sealed sanctum needs the ward)
 ]
 
 
 def test_full_scripted_run_completes_every_quest():
-    gs = players.new_game([
-        _agent("Borin", max_hp=36, attack=12, combat_focus="balanced"),
-        _agent("Sable", max_hp=30, attack=12, max_mana=12, combat_focus="offense"),
-    ])
+    gs = players.new_game(
+        [
+            _agent("Borin", max_hp=36, attack=12, combat_focus="balanced"),
+            _agent("Sable", max_hp=30, attack=12, max_mana=12, combat_focus="offense"),
+        ]
+    )
     gs.say = False
     gs.banter = False
-    run_gen(engine.greet_locals(gs))            # meet the village elder before setting out
+    run_gen(engine.greet_locals(gs))  # meet the village elder before setting out
     gs.scripted_actions = list(DEMO_ACTIONS)
     gs.scripted_battle = ["attack"] * 80
     while gs.scripted_actions:

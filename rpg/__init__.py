@@ -5,6 +5,7 @@ validate and guardrail steps); the model handles language and a set of bounded,
 consequential choices. The engine is driven as an event stream so the same core
 plays in a terminal, in a web UI, or under a scripted test harness.
 """
+
 from __future__ import annotations
 
 from .config import EngineOffline, has_key

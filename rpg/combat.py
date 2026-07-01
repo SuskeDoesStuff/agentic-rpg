@@ -9,6 +9,7 @@ override temperament. The enemy is deterministic and targets the biggest threat.
 ``run_battle`` is a generator: it yields System lines, requests a human's move via
 NeedBattleChoice, and returns 'won', 'lost', or 'fled'.
 """
+
 from __future__ import annotations
 
 import json
@@ -22,8 +23,8 @@ from .world import G
 POTION_HEAL, DEFEND_REDUCE = 12, 5
 SPELLS = {
     "firebolt": {"cost": 3, "kind": "attack", "power": 9},
-    "mend":     {"cost": 4, "kind": "heal",   "power": 12},
-    "ward":     {"cost": 2, "kind": "defend", "power": 6},
+    "mend": {"cost": 4, "kind": "heal", "power": 12},
+    "ward": {"cost": 2, "kind": "defend", "power": 6},
 }
 
 
@@ -67,8 +68,12 @@ def battle_outlook(gs, p, ehp, eatk):
         SPELLS[s]["kind"] == "heal" and SPELLS[s]["cost"] <= p.get("mana", 0) for s in SPELLS
     )
     losing = my_rounds_to_die < rounds_to_kill  # party acts first, so a tie kills the enemy before you fall
-    return {"rounds_to_kill_enemy": rounds_to_kill, "rounds_until_you_fall": my_rounds_to_die,
-            "you_can_heal": healing, "outlook": "losing" if losing else "winning"}
+    return {
+        "rounds_to_kill_enemy": rounds_to_kill,
+        "rounds_until_you_fall": my_rounds_to_die,
+        "you_can_heal": healing,
+        "outlook": "losing" if losing else "winning",
+    }
 
 
 def lowest_ally(gs):
@@ -82,18 +87,26 @@ def battle_choice(gs, p, enemy, ehp, eatk):
         return validate_move(gs, p, parse_battle_raw(gs.scripted_battle.pop(0)))
     menu = battle_menu(gs, p)
     if p["is_agent"]:
-        sysm = (f"You are {p['name']}, a {p['caution']} {p['combat_focus']} fighter. Choose ONE move from the "
-                "options that fits your nature and this moment. Offense favors attack or an attack spell; support "
-                "favors mending the most-hurt ally; the reckless press the attack. But survival overrides "
-                "temperament: if 'outlook' is losing and your HP is low (below about half your max), heal THIS TURN "
-                "if you can, since defending only delays death while a heal reverses it. If you are losing but still "
-                "near full HP, a heal would be wasted and the foe is simply too strong, so flee rather than trade "
-                "blows to your death. Never spend a potion or heal spell while your HP is already high. Spend mana "
-                "and potions deliberately, they do not refill mid-fight.")
-        usr = json.dumps({"options": menu, "your_hp": [p["hp"], p["max_hp"]], "your_mana": p.get("mana", 0),
-                          "party": [{"name": a["name"], "hp": a["hp"], "max_hp": a["max_hp"]} for a in gs.alive()],
-                          "enemy": {"name": enemy, "hp": ehp, "attack": eatk},
-                          "outlook": battle_outlook(gs, p, ehp, eatk)})
+        sysm = (
+            f"You are {p['name']}, a {p['caution']} {p['combat_focus']} fighter. Choose ONE move from the "
+            "options that fits your nature and this moment. Offense favors attack or an attack spell; support "
+            "favors mending the most-hurt ally; the reckless press the attack. But survival overrides "
+            "temperament: if 'outlook' is losing and your HP is low (below about half your max), heal THIS TURN "
+            "if you can, since defending only delays death while a heal reverses it. If you are losing but still "
+            "near full HP, a heal would be wasted and the foe is simply too strong, so flee rather than trade "
+            "blows to your death. Never spend a potion or heal spell while your HP is already high. Spend mana "
+            "and potions deliberately, they do not refill mid-fight."
+        )
+        usr = json.dumps(
+            {
+                "options": menu,
+                "your_hp": [p["hp"], p["max_hp"]],
+                "your_mana": p.get("mana", 0),
+                "party": [{"name": a["name"], "hp": a["hp"], "max_hp": a["max_hp"]} for a in gs.alive()],
+                "enemy": {"name": enemy, "hp": ehp, "attack": eatk},
+                "outlook": battle_outlook(gs, p, ehp, eatk),
+            }
+        )
         return validate_move(gs, p, config.work_struct(CombatMove, [("system", sysm), ("human", usr)]))
     raw = yield NeedBattleChoice(p["name"], menu)
     return validate_move(gs, p, parse_battle_raw(raw))

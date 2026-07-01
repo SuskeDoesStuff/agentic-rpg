@@ -11,6 +11,7 @@ Run with ``rpg-web`` (or ``python -m rpg.web``); set ``OPENAI_API_KEY`` for live
 games. With no key, the stream returns a single, honest error rather than faking a
 game. Tracing, if configured, is handled inside ``engine.play`` per session.
 """
+
 from __future__ import annotations
 
 import json
@@ -54,8 +55,10 @@ def _room_layout():
         pos = nx.spring_layout(rg, seed=7, k=0.55, iterations=400)
     except Exception:
         n = len(rooms)
-        pos = {r: (math.cos(2 * math.pi * i / max(1, n)), math.sin(2 * math.pi * i / max(1, n)))
-               for i, r in enumerate(rooms)}
+        pos = {
+            r: (math.cos(2 * math.pi * i / max(1, n)), math.sin(2 * math.pi * i / max(1, n)))
+            for i, r in enumerate(rooms)
+        }
     xs = [float(pos[r][0]) for r in rooms] or [0.0]
     ys = [float(pos[r][1]) for r in rooms] or [0.0]
     lo_x, hi_x, lo_y, hi_y = min(xs), max(xs), min(ys), max(ys)
@@ -63,8 +66,10 @@ def _room_layout():
     def norm(v, lo, hi):
         return 0.5 if hi == lo else (v - lo) / (hi - lo)
 
-    nodes = [{"id": r, "x": round(norm(float(pos[r][0]), lo_x, hi_x), 4),
-              "y": round(norm(float(pos[r][1]), lo_y, hi_y), 4)} for r in rooms]
+    nodes = [
+        {"id": r, "x": round(norm(float(pos[r][0]), lo_x, hi_x), 4), "y": round(norm(float(pos[r][1]), lo_y, hi_y), 4)}
+        for r in rooms
+    ]
     return {"nodes": nodes, "edges": edges, "start": START}
 
 
@@ -76,8 +81,14 @@ def _sse(obj):
 
 
 def _party_view(p):
-    return {"name": p["name"], "class_name": p.get("class_name", p.get("class_desc", "")),
-            "hp": p["hp"], "max_hp": p["max_hp"], "mana": p["mana"], "max_mana": p["max_mana"]}
+    return {
+        "name": p["name"],
+        "class_name": p.get("class_name", p.get("class_desc", "")),
+        "hp": p["hp"],
+        "max_hp": p["max_hp"],
+        "mana": p["mana"],
+        "max_mana": p["max_mana"],
+    }
 
 
 def _serialize(ev):
@@ -114,8 +125,9 @@ def _stream(spec, rounds):
         return
     try:
         if not config.has_key():
-            yield _sse({"type": "error",
-                        "message": "No API key is configured on this server, so a live game can't run."})
+            yield _sse(
+                {"type": "error", "message": "No API key is configured on this server, so a live game can't run."}
+            )
             return
         if not spec:
             yield _sse({"type": "error", "message": "Add at least one agent to the party."})
@@ -145,8 +157,7 @@ def _stream(spec, rounds):
         except Exception as exc:
             # Surface, never die silently: full traceback to the server log, a short note to the watcher.
             traceback.print_exc()
-            yield _sse({"type": "error",
-                        "message": f"The game stopped: {type(exc).__name__}: {exc}"[:300]})
+            yield _sse({"type": "error", "message": f"The game stopped: {type(exc).__name__}: {exc}"[:300]})
             return
     finally:
         _slots.release()
@@ -177,6 +188,7 @@ def play(party: str = Query("[]"), rounds: int = Query(48)):
 
 def main():
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "8000")))
 
 

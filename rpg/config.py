@@ -10,6 +10,7 @@ it is absent the helpers raise :class:`EngineOffline` so a UI can show a dormant
 here, so a deployed demo can point at a different model without touching the
 engine.
 """
+
 from __future__ import annotations
 
 import os

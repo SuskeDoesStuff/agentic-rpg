@@ -13,6 +13,7 @@ Acquisition is "talk to the right NPC"; the engine greets every NPC in a newly
 found room, so quests surface through exploration. Adding content is a pure data
 edit in ``world.py`` because every rule below is generic over the tables.
 """
+
 from __future__ import annotations
 
 from .world import GATES, OBJECTIVES, QUESTS, node_room
@@ -52,8 +53,9 @@ def next_objective(gs):
 
 def known_goals(gs):
     """The party's actionable leads: located-but-unclaimed objectives of active quests."""
-    leads = [OBJECTIVES[n]["lead"] for n in active_objective_names(gs)
-             if knows_where(gs, n) and not has_objective(gs, n)]
+    leads = [
+        OBJECTIVES[n]["lead"] for n in active_objective_names(gs) if knows_where(gs, n) and not has_objective(gs, n)
+    ]
     return leads or ["no firm leads yet; seek out new places and the people who hand out tasks"]
 
 

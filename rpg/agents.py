@@ -7,6 +7,7 @@ agent argues for a destination and a deterministic, assertiveness-weighted vote
 resolves it, with the compass as a baseline voice so a confident-but-wrong
 consensus needs real support to override the proven route.
 """
+
 from __future__ import annotations
 
 import json
@@ -57,7 +58,7 @@ def explore_hop(gs):
             if nxt not in gs.visited:
                 if not _blocked(gs, nxt):
                     return hop  # nearest reachable frontier
-                continue        # a barred frontier: do not route through it
+                continue  # a barred frontier: do not route through it
             q.append((nxt, hop))  # a known room: keep searching beyond it
     return None
 
@@ -83,8 +84,11 @@ def heading(gs):
 def navigation_options(gs):
     """Rooms the party may move to, plus 'stay' only when something here is worth staying for."""
     opts = exits(gs.location)
-    worth_staying = bool(items_in_room(gs, gs.location) or enemy_in_room(gs, gs.location)
-                         or any(npc_has_more(gs, n) for n in npcs_at(gs.location)))
+    worth_staying = bool(
+        items_in_room(gs, gs.location)
+        or enemy_in_room(gs, gs.location)
+        or any(npc_has_more(gs, n) for n in npcs_at(gs.location))
+    )
     return opts + (["stay"] if worth_staying or not opts else [])
 
 
@@ -93,26 +97,39 @@ def agent_decide(gs, player, can_move=True):
     h = heading(gs)
     here = [p["name"] for p in gs.alive() if p is not player] + [n.capitalize() for n in npcs_at(gs.location)]
     present = ", ".join(here) or "no one else"
-    base = (f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}, adventuring with "
-            f"{roster(gs, player)}. Present with you right now: {present}. React to what just happened, then issue "
-            "exactly ONE action (no lists, semicolons, or 'then'). Address only someone present by name; if you are "
-            "alone, do not invent a team or address absent allies or an NPC who is not in this room. You do not know "
-            "the way ahead in advance: learn what a place or prize demands by asking those who know or by trying and "
-            "being turned back, then go fetch what is needed. A potion is your only heal in a fight and the road has "
-            "enemies, so if one is here and the party carries none, take it. Never re-ask something already "
-            "answered. Say one short in-character line, and never name your bearings, a compass, an objective, or "
-            "any game term aloud. ")
+    base = (
+        f"You are {player['name']}, {player['class_desc']}, who is {player['personality']}, adventuring with "
+        f"{roster(gs, player)}. Present with you right now: {present}. React to what just happened, then issue "
+        "exactly ONE action (no lists, semicolons, or 'then'). Address only someone present by name; if you are "
+        "alone, do not invent a team or address absent allies or an NPC who is not in this room. You do not know "
+        "the way ahead in advance: learn what a place or prize demands by asking those who know or by trying and "
+        "being turned back, then go fetch what is needed. A potion is your only heal in a fight and the road has "
+        "enemies, so if one is here and the party carries none, take it. Never re-ask something already "
+        "answered. Say one short in-character line, and never name your bearings, a compass, an objective, or "
+        "any game term aloud. "
+    )
     if can_move:
-        rule = ("Let 'bearings' steer you: if its 'go_to' is set, travel there and nowhere else. If its 'known' is "
-                "false you do not yet know the way to your current aim, so ask someone here who might know it; but if "
-                "no one here can point you to THIS aim, or they have already told you all they know, wander an "
-                "unvisited path and discover it yourself rather than lingering.")
+        rule = (
+            "Let 'bearings' steer you: if its 'go_to' is set, travel there and nowhere else. If its 'known' is "
+            "false you do not yet know the way to your current aim, so ask someone here who might know it; but if "
+            "no one here can point you to THIS aim, or they have already told you all they know, wander an "
+            "unvisited path and discover it yourself rather than lingering."
+        )
     else:
-        rule = ("The party travels together and you are not leading the march this turn, so do NOT travel. Do "
-                "something useful where you stand: take a potion or other useful item that is here, talk to a "
-                "companion or an NPC, or hold position.")
-    usr = json.dumps({"now": world_context(gs, gs.location), "goals": known_goals(gs),
-                      "bearings": h, "carrying_potion": "potion" in gs.inventory, "recent": gs.recent_memory()})
+        rule = (
+            "The party travels together and you are not leading the march this turn, so do NOT travel. Do "
+            "something useful where you stand: take a potion or other useful item that is here, talk to a "
+            "companion or an NPC, or hold position."
+        )
+    usr = json.dumps(
+        {
+            "now": world_context(gs, gs.location),
+            "goals": known_goals(gs),
+            "bearings": h,
+            "carrying_potion": "potion" in gs.inventory,
+            "recent": gs.recent_memory(),
+        }
+    )
     out = config.work_struct(AgentTurn, [("system", base + rule), ("human", usr)], temperature=0.85)
     return (out.get("say", "") or "").strip(), (out.get("action", "look") or "look").strip()
 
@@ -141,17 +158,26 @@ def negotiate_move(gs):
     h = heading(gs)
     proposals = []
     for p in [a for a in gs.alive() if a["is_agent"]]:
-        sysm = (f"You are {p['name']}, a {p['caution']} {p['combat_focus']} adventurer. The party decides together "
-                "where to go next. The 'bearings' field's 'go_to' is the way you already know leads toward the goal, "
-                "so propose that UNLESS your nature gives a concrete reason to deviate: the cautious may want to fall "
-                "back for light or healing before danger, the bold may want to press on. If 'go_to' is null you do "
-                "not yet know the way: head into one of the unexplored rooms in 'bearings' to discover it, and do "
-                "not loiter to re-ask someone who has no more to tell. 'stay' is only an option when it is in the "
-                "options list. Do not propose a room because you guess it connects somewhere, trust what you already "
-                "know for geography. Your reason is spoken aloud to your companions, so keep it in character and "
-                "never name your bearings, a compass, or any game term. Propose ONE option with one short reason.")
-        usr = json.dumps({"options": opts, "bearings": h, "goals": known_goals(gs),
-                          "here": world_context(gs, gs.location), "recent": gs.recent_memory()})
+        sysm = (
+            f"You are {p['name']}, a {p['caution']} {p['combat_focus']} adventurer. The party decides together "
+            "where to go next. The 'bearings' field's 'go_to' is the way you already know leads toward the goal, "
+            "so propose that UNLESS your nature gives a concrete reason to deviate: the cautious may want to fall "
+            "back for light or healing before danger, the bold may want to press on. If 'go_to' is null you do "
+            "not yet know the way: head into one of the unexplored rooms in 'bearings' to discover it, and do "
+            "not loiter to re-ask someone who has no more to tell. 'stay' is only an option when it is in the "
+            "options list. Do not propose a room because you guess it connects somewhere, trust what you already "
+            "know for geography. Your reason is spoken aloud to your companions, so keep it in character and "
+            "never name your bearings, a compass, or any game term. Propose ONE option with one short reason."
+        )
+        usr = json.dumps(
+            {
+                "options": opts,
+                "bearings": h,
+                "goals": known_goals(gs),
+                "here": world_context(gs, gs.location),
+                "recent": gs.recent_memory(),
+            }
+        )
         prop = config.work_struct(Proposal, [("system", sysm), ("human", usr)])
         dest = (prop.get("destination") or "").lower().strip()
         if dest not in opts:  # invalid pick falls back to the known route, else the first way out
